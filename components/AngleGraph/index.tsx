@@ -146,7 +146,9 @@ export default function AngleGraph({
       sheet.style.transform = "translateY(0)";
       sheet.style.height = "45vh";
       timer = setTimeout(() => {
+        sheet.style.transition = "none";
         sheet.style.transform = "";
+        void sheet.offsetHeight; // force reflow before re-enabling transition
         sheet.style.transition = "";
       }, 310);
       onExpandChangeRef.current?.(false);
@@ -160,6 +162,7 @@ export default function AngleGraph({
         onExpandChangeRef.current?.(false);
         onCloseRef.current();
         sheet.style.transform = "";
+        void sheet.offsetHeight; // force reflow so the cleared transform doesn't transition back
         sheet.style.transition = "";
       }, 300);
     };
@@ -168,7 +171,9 @@ export default function AngleGraph({
       sheet.style.transition = `transform ${EASE}`;
       sheet.style.transform = "translateY(0)";
       timer = setTimeout(() => {
+        sheet.style.transition = "none";
         sheet.style.transform = "";
+        void sheet.offsetHeight; // force reflow before re-enabling transition
         sheet.style.transition = "";
       }, 310);
     };
@@ -178,7 +183,10 @@ export default function AngleGraph({
       if (e.touches[0].clientY - rect.top > 72) return;
       clearTimer();
       startY = e.touches[0].clientY;
-      startTime = Date.now();
+      // startTime is set on first move, not here — otherwise a pause between
+      // touchstart and the actual swipe inflates elapsed time, understating
+      // velocity and causing a quick flick to snap back instead of dismissing.
+      startTime = 0;
       delta = 0;
       dragging = true;
       sheet.style.transition = "none";
@@ -187,6 +195,7 @@ export default function AngleGraph({
     const onTouchMove = (e: TouchEvent) => {
       if (!dragging) return;
       delta = e.touches[0].clientY - startY;
+      if (startTime === 0 && delta !== 0) startTime = Date.now();
       // Only translate downward; upward drag shows no interim visual (snap on release)
       sheet.style.transform = delta > 0 ? `translateY(${delta}px)` : "translateY(0)";
     };
@@ -194,8 +203,7 @@ export default function AngleGraph({
     const onRelease = () => {
       if (!dragging) return;
       dragging = false;
-      const elapsed = Date.now() - startTime || 1;
-      const velocity = delta / elapsed; // px/ms, signed
+      const velocity = startTime > 0 ? delta / (Date.now() - startTime) : 0; // px/ms, signed
 
       if (snap === "compact") {
         if (delta < -40 || velocity < -0.3) {
@@ -283,10 +291,10 @@ export default function AngleGraph({
   return (
     <div
       ref={sheetRef}
-      className="absolute bottom-0 inset-x-0 z-20 bg-black/90 rounded-t-2xl animate-slide-up flex flex-col"
+      className="absolute bottom-0 inset-x-0 z-20 bg-black/90 rounded-t-2xl animate-slide-up flex flex-col touch-none"
       style={{ height: "45vh" }}
     >
-      <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0" />
+      <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0 touch-none" />
       <canvas ref={canvasRef} className="w-full flex-1 min-h-0" />
     </div>
   );
