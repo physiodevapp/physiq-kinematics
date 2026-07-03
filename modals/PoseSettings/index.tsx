@@ -1,7 +1,7 @@
 "use client";
 
 import { useSettings } from '@/providers/Settings';
-import { ArrowPathIcon } from '@heroicons/react/24/solid';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import React from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 

@@ -17,7 +17,7 @@ import {
   Bars2Icon,
   HomeIcon,
   PauseIcon,
-} from "@heroicons/react/24/solid";
+} from "@heroicons/react/24/outline";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 
@@ -135,10 +135,12 @@ export default function Home() {
     <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
 
       {/* Title bar */}
-      <div className="absolute z-10 inset-x-0 mx-auto w-[50vw] text-center top-2">
-        <h1 className={`text-xl text-white bg-[#5dadec] dark:bg-black/40 rounded-full py-2 px-4 font-bold whitespace-nowrap inline-flex items-center gap-2`}>
+      <div className="absolute z-10 inset-x-0 text-center top-2 pointer-events-none">
+        <h1 className="font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-full py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw]">
+          Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span>
+          <span className="opacity-50 font-normal mx-0.5">·</span>
           Kinematics
-          {isFrozen && <PauseIcon className="h-5 w-5 animate-pulse" />}
+          {isFrozen && <PauseIcon className="h-4 w-4 animate-pulse" />}
         </h1>
       </div>
 

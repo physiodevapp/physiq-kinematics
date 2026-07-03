@@ -3,7 +3,15 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Outfit', sans-serif;
+}
+
+.font-display {
+  font-family: 'DM Serif Display', serif;
+}
+
+.font-mono-dm {
+  font-family: 'DM Mono', monospace;
 }
 
 @layer components {

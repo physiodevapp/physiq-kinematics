@@ -19,7 +19,7 @@ import {
   keypointPairs,
 } from "@/utils/pose";
 import { jointConfigMap, formatJointName } from "@/utils/joint";
-import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
+import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 
 export type KinematicsLiveHandle = {
   setIsFrozen: React.Dispatch<React.SetStateAction<boolean>>;

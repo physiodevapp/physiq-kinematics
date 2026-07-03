@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { checkbox } from "@/interfaces/checkbox";
 import { CanvasKeypointName } from "@/interfaces/pose";
-import { StopIcon } from "@heroicons/react/24/solid";
+import { CheckIcon } from "@heroicons/react/24/outline";
 
 interface IndexProps {
   isModalOpen: boolean;
@@ -98,7 +98,7 @@ const Index = ({
               } ${checkboxStates[index] ? "opacity-100" : "opacity-40"}`}
             >
               {checkboxStates[index] && (
-                <StopIcon className="w-6 h-6 text-blue-500" />
+                <CheckIcon className="w-4 h-4 text-[#5dadec] stroke-2" />
               )}
             </div>
           </label>
