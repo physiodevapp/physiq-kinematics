@@ -6,10 +6,15 @@ const EASE = "0.3s cubic-bezier(0.32,0.72,0,1)";
 
 // Multi-snap drag for bottom sheets: compact (45vh) ↔ expanded (90vh) ↔ dismissed.
 // Shared by AngleGraph and PoseSettings so both sheets behave identically.
+// Pass allowExpand: false for sheets whose content doesn't benefit from a taller
+// state (e.g. PoseSettings) — the swipe-up snap point is disabled and only
+// compact ↔ dismissed remain.
 export function useDraggableSheet(
   sheetRef: RefObject<HTMLDivElement | null>,
-  onClose: () => void
+  onClose: () => void,
+  options?: { allowExpand?: boolean }
 ) {
+  const allowExpand = options?.allowExpand ?? true;
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
@@ -100,7 +105,7 @@ export function useDraggableSheet(
       const velocity = startTime > 0 ? delta / (Date.now() - startTime) : 0; // px/ms, signed
 
       if (snap === "compact") {
-        if (delta < -40 || velocity < -0.3) {
+        if (allowExpand && (delta < -40 || velocity < -0.3)) {
           expand();
         } else if (delta > 80 || velocity > 0.3) {
           dismiss();
