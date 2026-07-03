@@ -29,7 +29,7 @@ const Index = ({ onClose }: IndexProps) => {
       style={{ height: "45vh" }}
     >
       <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0 touch-none" />
-      <div className="w-full flex-1 min-h-0 px-4 pt-4 pb-12 flex flex-col items-center overflow-y-auto">
+      <div className="w-full flex-1 min-h-0 px-4 pt-4 pb-12 flex flex-col items-center">
         <div
           className="w-full h-9 flex justify-end shrink-0 text-white italic font-bold cursor-pointer"
           onClick={resetPoseSettings}
