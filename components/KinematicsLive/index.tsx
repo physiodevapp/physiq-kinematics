@@ -374,7 +374,7 @@ const KinematicsLive = forwardRef<KinematicsLiveHandle, KinematicsLiveProps>((
       />
 
       {showGrid && (
-        <div className="pointer-events-none absolute inset-0 z-50 opacity-60">
+        <div className="pointer-events-none absolute inset-0 z-10 opacity-60">
           <div className="absolute top-0 bottom-0 left-1/4 w-px"
             style={{ background: 'linear-gradient(to bottom, transparent 0%, white 10%, white 90%, transparent 100%)' }} />
           <div className="absolute top-0 bottom-0 left-2/4 w-px"
