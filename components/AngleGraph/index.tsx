@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
-import { formatJointName } from "@/utils/joint";
+import { formatJointName, getColorsForJoint } from "@/utils/joint";
 
 const MAX_POINTS = 300;
 const GRID_ANGLES = [45, 90, 135];
@@ -12,10 +12,13 @@ function drawGraph(
   ctx: CanvasRenderingContext2D,
   W: number,
   H: number,
+  dpr: number,
   selectedJoints: CanvasKeypointName[],
   buffer: Map<string, number[]>,
   jointData: JointDataMap
 ) {
+  ctx.save();
+  ctx.scale(dpr, dpr);
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
   const xStep = plotW / (MAX_POINTS - 1);
@@ -48,7 +51,7 @@ function drawGraph(
     const buf = buffer.get(joint);
     if (!buf || buf.length === 0) continue;
 
-    const color = jointData[joint]?.color?.borderColor ?? "rgba(255,255,255,0.7)";
+    const color = getColorsForJoint(joint).borderColor;
     const total = buf.length;
     const currentAngle = buf[total - 1];
     const clamp = (v: number) => Math.min(Math.max(v, 0), 180);
@@ -74,6 +77,7 @@ function drawGraph(
     ctx.fillText(formatJointName(joint), W - PAD.right + 5, currentY - 2);
     ctx.fillText(`${Math.round(currentAngle)}°`, W - PAD.right + 5, currentY + 9);
   }
+  ctx.restore();
 }
 
 interface AngleGraphProps {
@@ -111,10 +115,13 @@ export default function AngleGraph({ jointDataRef, selectedJoints, isFrozen }: A
       const cv = canvasRef.current;
       if (!cv || cv.offsetWidth === 0) return;
 
-      // Sync canvas coordinate space with CSS layout size
-      if (cv.width !== cv.offsetWidth || cv.height !== cv.offsetHeight) {
-        cv.width = cv.offsetWidth;
-        cv.height = cv.offsetHeight;
+      // Sync canvas physical pixels to CSS size × devicePixelRatio for crisp rendering
+      const dpr = window.devicePixelRatio || 1;
+      const targetW = Math.round(cv.offsetWidth * dpr);
+      const targetH = Math.round(cv.offsetHeight * dpr);
+      if (cv.width !== targetW || cv.height !== targetH) {
+        cv.width = targetW;
+        cv.height = targetH;
       }
 
       // Accumulate one sample per frame while not frozen
@@ -136,7 +143,7 @@ export default function AngleGraph({ jointDataRef, selectedJoints, isFrozen }: A
       const ctx = cv.getContext("2d");
       if (!ctx) return;
 
-      drawGraph(ctx, cv.width, cv.height, selectedJointsRef.current, bufferRef.current, jointDataRef.current ?? {});
+      drawGraph(ctx, cv.offsetWidth, cv.offsetHeight, dpr, selectedJointsRef.current, bufferRef.current, jointDataRef.current ?? {});
     };
 
     rafRef.current = requestAnimationFrame(tick);
