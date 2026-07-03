@@ -48,6 +48,7 @@ export default function Home() {
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
 
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
   const shouldResumeRef = useRef(false);
@@ -271,7 +272,7 @@ export default function Home() {
       {/* Bottom right controls — float above graph panel when visible */}
       <div
         className="absolute right-1 z-30 flex flex-row-reverse items-center gap-2 transition-all duration-300"
-        style={{ bottom: showGraph ? "calc(45vh + 0.5rem)" : "0.5rem" }}
+        style={{ bottom: showGraph ? (isGraphExpanded ? "calc(90vh + 0.5rem)" : "calc(45vh + 0.5rem)") : "0.5rem" }}
       >
         <ArrowTopRightOnSquareIcon
           className={`w-8 h-8 text-white transition-transform ${
@@ -298,7 +299,8 @@ export default function Home() {
           jointDataRef={jointDataRef}
           selectedJoints={selectedJoints}
           isFrozen={isFrozen}
-          onClose={() => setShowGraph(false)}
+          onClose={() => { setShowGraph(false); setIsGraphExpanded(false); }}
+          onExpandChange={setIsGraphExpanded}
         />
       )}
 
