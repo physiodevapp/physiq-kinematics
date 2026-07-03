@@ -16,7 +16,6 @@ import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
   Bars2Icon,
-  HomeIcon,
   PauseIcon,
 } from "@heroicons/react/24/outline";
 import PoseModal from "@/modals/Poses";
@@ -153,14 +152,17 @@ export default function Home() {
     <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
 
       {/* Title bar */}
-      <div className="absolute z-10 inset-x-0 text-center top-2 pointer-events-none">
-        <h1 className="font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw]">
-          <span>Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
-          <span className="opacity-50 font-normal">—</span>
-          <span style={{ color: "#5dadec" }}>Kinematics</span>
-          {isFrozen && <PauseIcon className="h-4 w-4 animate-pulse" />}
-        </h1>
-      </div>
+      <h1
+        className="absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none transition-opacity duration-150 hover:opacity-75"
+        onClick={isInIframe ? handleGoHome : undefined}
+        style={isInIframe ? { cursor: "pointer" } : undefined}
+      >
+        {isInIframe && <span className="animate-hub-back-hint" style={{ opacity: 0.55 }}>‹</span>}
+        <span>Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
+        <span className="opacity-50 font-normal">—</span>
+        <span style={{ color: "#5dadec" }}>Kinematics</span>
+        {isFrozen && <PauseIcon className="h-4 w-4 animate-pulse" />}
+      </h1>
 
       {/* Camera feed + canvas — only mounted when satellite is visible */}
       <div className="relative w-full flex-1">
@@ -183,13 +185,6 @@ export default function Home() {
           />
         )}
       </div>
-
-      {/* Left toolbar */}
-      <section className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-2xl">
-        {isInIframe && (
-          <HomeIcon className="w-6 h-6 text-white cursor-pointer" onClick={handleGoHome} />
-        )}
-      </section>
 
       {/* Right toolbar */}
       <section className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-2xl">

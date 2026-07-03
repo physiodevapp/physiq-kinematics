@@ -14,6 +14,17 @@ body {
   font-family: 'DM Mono', monospace;
 }
 
+@keyframes hub-back-hint {
+  0%   { transform: translateX(0); }
+  35%  { transform: translateX(-5px); }
+  65%  { transform: translateX(1px); }
+  100% { transform: translateX(0); }
+}
+
+.animate-hub-back-hint {
+  animation: hub-back-hint 0.7s ease-out 0.5s 1 both;
+}
+
 @layer components {
   input[type="range"] {
     appearance: none;
