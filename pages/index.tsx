@@ -270,7 +270,7 @@ export default function Home() {
         </div>
 
         <Cog6ToothIcon
-          className="h-6 w-6 cursor-pointer text-white"
+          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
           onClick={handleTogglePoseSettings}
         />
 
