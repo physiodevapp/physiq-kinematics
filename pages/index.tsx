@@ -55,6 +55,9 @@ export default function Home() {
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
 
+  // Start camera immediately when standalone; wait for PHYSIQ_SAT_VISIBLE when inside hub iframe
+  const [isCameraActive, setIsCameraActive] = useState(!isInIframe);
+
   const handleGoHome = () => {
     window.parent.postMessage({ type: "PHYSIQ_GO_HOME" }, "*");
   };
@@ -115,7 +118,11 @@ export default function Home() {
   // Hub integration: listen for visibility messages
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type === "PHYSIQ_SAT_HIDDEN") {
+      if (e.data?.type === "PHYSIQ_SAT_VISIBLE") {
+        setIsCameraActive(true);
+      } else if (e.data?.type === "PHYSIQ_SAT_HIDDEN") {
+        setIsCameraActive(false);
+        setIsFrozen(false);
         setIsPoseSettingsModalOpen(false);
         setShowPoseOrientationModal(false);
         setIsPoseModalOpen(false);
@@ -127,9 +134,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    handleWorkerLifecycle(true);
+    if (isCameraActive) {
+      handleWorkerLifecycle(true);
+    } else {
+      handleWorkerLifecycle(false);
+    }
     return () => handleWorkerLifecycle(false);
-  }, []);
+  }, [isCameraActive]);
 
   return (
     <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
@@ -144,24 +155,26 @@ export default function Home() {
         </h1>
       </div>
 
-      {/* Camera feed + canvas */}
+      {/* Camera feed + canvas — only mounted when satellite is visible */}
       <div className="relative w-full flex-1">
-        <KinematicsLive
-          orthogonalReference={orthogonalReference}
-          videoConstraints={videoConstraints}
-          anglesToDisplay={anglesToDisplay}
-          setAnglesToDisplay={setAnglesToDisplay}
-          isPoseSettingsModalOpen={isPoseSettingsModalOpen}
-          setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
-          jointWorkerRef={jointWorkerRef}
-          jointDataRef={jointDataRef}
-          onChangeIsFrozen={setIsFrozen}
-          onWorkerInit={() => handleWorkerLifecycle(true)}
-          showGrid={showGrid}
-          showPoseOrientationModal={showPoseOrientationModal}
-          setShowPoseOrientationModal={setShowPoseOrientationModal}
-          onPoseOrientationInferredChange={setPoseOrientationInferred}
-        />
+        {isCameraActive && (
+          <KinematicsLive
+            orthogonalReference={orthogonalReference}
+            videoConstraints={videoConstraints}
+            anglesToDisplay={anglesToDisplay}
+            setAnglesToDisplay={setAnglesToDisplay}
+            isPoseSettingsModalOpen={isPoseSettingsModalOpen}
+            setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
+            jointWorkerRef={jointWorkerRef}
+            jointDataRef={jointDataRef}
+            onChangeIsFrozen={setIsFrozen}
+            onWorkerInit={() => handleWorkerLifecycle(true)}
+            showGrid={showGrid}
+            showPoseOrientationModal={showPoseOrientationModal}
+            setShowPoseOrientationModal={setShowPoseOrientationModal}
+            onPoseOrientationInferredChange={setPoseOrientationInferred}
+          />
+        )}
       </div>
 
       {/* Left toolbar */}
