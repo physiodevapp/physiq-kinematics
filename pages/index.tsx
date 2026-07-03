@@ -22,6 +22,7 @@ import {
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import AngleGraph from "@/components/AngleGraph";
+import type { KinematicsLiveHandle } from "@/components/KinematicsLive";
 
 const KinematicsLive = dynamic(
   () => import("../components/KinematicsLive").then((mod) => mod.default),
@@ -54,6 +55,7 @@ export default function Home() {
 
   const jointDataRef = useRef<JointDataMap>({});
   const jointWorkerRef = useRef<Worker | null>(null);
+  const kinematicsLiveRef = useRef<KinematicsLiveHandle>(null);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
@@ -131,6 +133,18 @@ export default function Home() {
     });
   };
 
+  // Mirrors KinematicsLive's handleClickOnCanvas: same guard (close modals first if
+  // one is open), same freeze toggle otherwise — so this title button truly behaves
+  // like tapping the video.
+  const handleTitlePauseClick = () => {
+    if (isPoseSettingsModalOpen || showPoseOrientationModal) {
+      setIsPoseSettingsModalOpen(false);
+      setShowPoseOrientationModal(false);
+    } else {
+      kinematicsLiveRef.current?.setIsFrozen((prev) => !prev);
+    }
+  };
+
   const toggleCamera = () => {
     setVideoConstraints((prev) => ({
       facingMode: prev.facingMode === "user" ? "environment" : "user",
@@ -187,13 +201,19 @@ export default function Home() {
         >Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
         <span className="opacity-50 font-normal">—</span>
         <span style={{ color: "#5dadec" }}>Kinematics</span>
-        {isFrozen && <PauseIcon className="h-4 w-4 animate-pulse" />}
+        {isFrozen && (
+          <PauseIcon
+            className="pointer-events-auto cursor-pointer h-4 w-4 animate-pulse"
+            onClick={handleTitlePauseClick}
+          />
+        )}
       </h1>
 
       {/* Camera feed + canvas — only mounted when satellite is visible */}
       <div className="relative w-full flex-1">
         {isCameraActive && (
           <KinematicsLive
+            ref={kinematicsLiveRef}
             orthogonalReference={orthogonalReference}
             videoConstraints={videoConstraints}
             anglesToDisplay={anglesToDisplay}
