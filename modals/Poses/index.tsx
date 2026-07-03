@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import { checkbox } from "@/interfaces/checkbox";
 import { CanvasKeypointName } from "@/interfaces/pose";
 import { CheckIcon } from "@heroicons/react/24/outline";
@@ -22,6 +23,7 @@ const Index = ({
   jointOptions,
   initialSelectedJoints = [],
 }: IndexProps) => {
+  const { basePath } = useRouter();
   const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
     jointOptions.map((joint) => initialSelectedJoints.includes(joint.value as CanvasKeypointName))
   );
@@ -64,11 +66,12 @@ const Index = ({
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}
     >
-      <p className="absolute top-2 text-white text-xl bg-black/40 rounded-full py-2 px-8 font-bold">
-        Track joints
+      <p className="font-display absolute top-2 text-white text-base sm:text-lg bg-black/40 rounded-full py-1.5 px-6">
+        Seleccionar articulaciones
       </p>
       <div
-        className="relative h-[70vh] bg-[url('/human.png')] bg-center bg-contain bg-no-repeat aspect-[806/2000]"
+        className="relative h-[70vh] bg-center bg-contain bg-no-repeat aspect-[806/2000]"
+        style={{ backgroundImage: `url('${basePath}/human.png')` }}
         onClick={(e) => {
           e.stopPropagation();
           handleModal();
