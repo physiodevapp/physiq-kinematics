@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { checkbox } from "@/interfaces/checkbox";
 import { CanvasKeypointName } from "@/interfaces/pose";
-import { CheckIcon } from "@heroicons/react/24/outline";
+import { CheckIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 
 interface IndexProps {
   isModalOpen: boolean;
@@ -27,6 +27,13 @@ const Index = ({
   const [checkboxStates, setCheckboxStates] = useState<boolean[]>(
     jointOptions.map((joint) => initialSelectedJoints.includes(joint.value as CanvasKeypointName))
   );
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const hiddenImgRef = useRef<HTMLImageElement>(null);
+
+  // If the image is already in cache (complete) when the modal mounts, mark it ready immediately
+  useEffect(() => {
+    if (hiddenImgRef.current?.complete) setImageLoaded(true);
+  }, []);
 
   const selectedCount = checkboxStates.filter(Boolean).length;
 
@@ -66,47 +73,63 @@ const Index = ({
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}
     >
+      {/* Hidden img triggers onLoad and warms the browser cache */}
+      <img
+        ref={hiddenImgRef}
+        src={`${basePath}/human.png`}
+        onLoad={() => setImageLoaded(true)}
+        className="hidden"
+        alt=""
+      />
+
       <p className="font-display absolute top-2 text-white text-base sm:text-lg bg-black/40 rounded-2xl py-1.5 px-6">
         Seleccionar articulaciones
       </p>
-      <div
-        className="relative h-[70vh] bg-center bg-contain bg-no-repeat aspect-[806/2000]"
-        style={{ backgroundImage: `url('${basePath}/human.png')` }}
-        onClick={(e) => {
-          e.stopPropagation();
-          handleModal();
-        }}
-      >
-        {jointOptions.map((joint, index) => (
-          <label
-            key={joint.value}
-            className="absolute flex items-center justify-center cursor-pointer"
-            style={{
-              top: positions[index].top,
-              left: positions[index].left,
-              transform: "translate(-50%, -50%)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <input
-              type="checkbox"
-              checked={checkboxStates[index]}
-              disabled={!checkboxStates[index] && selectedCount >= maxSelected}
-              onChange={(e) => handleCheckboxChange(index, e.target.checked)}
-              className="absolute opacity-0 w-0 h-0"
-            />
-            <div
-              className={`w-6 h-6 border rounded-[0.4rem] flex items-center justify-center ${
-                checkboxStates[index] ? "bg-white border-white" : "bg-white border-gray-600"
-              } ${checkboxStates[index] ? "opacity-100" : "opacity-40"}`}
+
+      {!imageLoaded ? (
+        <div className="flex items-center justify-center h-[70vh] aspect-[806/2000]">
+          <ArrowPathIcon className="w-8 h-8 text-white animate-spin" />
+        </div>
+      ) : (
+        <div
+          className="relative h-[70vh] bg-center bg-contain bg-no-repeat aspect-[806/2000]"
+          style={{ backgroundImage: `url('${basePath}/human.png')` }}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleModal();
+          }}
+        >
+          {jointOptions.map((joint, index) => (
+            <label
+              key={joint.value}
+              className="absolute flex items-center justify-center cursor-pointer"
+              style={{
+                top: positions[index].top,
+                left: positions[index].left,
+                transform: "translate(-50%, -50%)",
+              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              {checkboxStates[index] && (
-                <CheckIcon className="w-4 h-4 text-[#5dadec] stroke-2" />
-              )}
-            </div>
-          </label>
-        ))}
-      </div>
+              <input
+                type="checkbox"
+                checked={checkboxStates[index]}
+                disabled={!checkboxStates[index] && selectedCount >= maxSelected}
+                onChange={(e) => handleCheckboxChange(index, e.target.checked)}
+                className="absolute opacity-0 w-0 h-0"
+              />
+              <div
+                className={`w-6 h-6 border rounded-[0.4rem] flex items-center justify-center ${
+                  checkboxStates[index] ? "bg-white border-white" : "bg-white border-gray-600"
+                } ${checkboxStates[index] ? "opacity-100" : "opacity-40"}`}
+              >
+                {checkboxStates[index] && (
+                  <CheckIcon className="w-4 h-4 text-[#5dadec] stroke-2" />
+                )}
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

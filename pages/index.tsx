@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
@@ -27,6 +28,7 @@ const KinematicsLive = dynamic(
 );
 
 export default function Home() {
+  const { basePath } = useRouter();
   const {
     settings,
     setSelectedJoints,
@@ -114,6 +116,11 @@ export default function Home() {
       facingMode: prev.facingMode === "user" ? "environment" : "user",
     }));
   };
+
+  // Preload the joint-selection body diagram so it's cached before the modal opens
+  useEffect(() => {
+    new Image().src = `${basePath}/human.png`;
+  }, [basePath]);
 
   // Hub integration: listen for visibility messages
   useEffect(() => {
