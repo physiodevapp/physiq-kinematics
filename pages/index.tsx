@@ -350,7 +350,9 @@ export default function Home() {
         onSelectionChange={handleJointSelection}
       />
 
-      <PoseSettingsModal isModalOpen={isPoseSettingsModalOpen} />
+      {isPoseSettingsModalOpen && (
+        <PoseSettingsModal onClose={() => setIsPoseSettingsModalOpen(false)} />
+      )}
     </main>
   );
 }
