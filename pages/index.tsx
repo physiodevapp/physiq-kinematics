@@ -298,6 +298,7 @@ export default function Home() {
           jointDataRef={jointDataRef}
           selectedJoints={selectedJoints}
           isFrozen={isFrozen}
+          onClose={() => setShowGraph(false)}
         />
       )}
 
