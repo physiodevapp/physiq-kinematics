@@ -81,7 +81,6 @@ interface AngleGraphProps {
   selectedJoints: CanvasKeypointName[];
   isFrozen: boolean;
   onClose: () => void;
-  onExpandChange?: (expanded: boolean) => void;
 }
 
 export default function AngleGraph({
@@ -89,7 +88,6 @@ export default function AngleGraph({
   selectedJoints,
   isFrozen,
   onClose,
-  onExpandChange,
 }: AngleGraphProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -99,11 +97,9 @@ export default function AngleGraph({
   const isFrozenRef = useRef(isFrozen);
   const selectedJointsRef = useRef(selectedJoints);
   const onCloseRef = useRef(onClose);
-  const onExpandChangeRef = useRef(onExpandChange);
 
   useEffect(() => { isFrozenRef.current = isFrozen; }, [isFrozen]);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-  useEffect(() => { onExpandChangeRef.current = onExpandChange; }, [onExpandChange]);
 
   useEffect(() => {
     selectedJointsRef.current = selectedJoints;
@@ -137,7 +133,6 @@ export default function AngleGraph({
       sheet.style.height = "90vh";
       sheet.style.transform = "";
       timer = setTimeout(() => { sheet.style.transition = ""; }, 310);
-      onExpandChangeRef.current?.(true);
     };
 
     const collapse = () => {
@@ -151,7 +146,6 @@ export default function AngleGraph({
         void sheet.offsetHeight; // force reflow before re-enabling transition
         sheet.style.transition = "";
       }, 310);
-      onExpandChangeRef.current?.(false);
     };
 
     const dismiss = () => {
@@ -161,7 +155,6 @@ export default function AngleGraph({
         // The component unmounts right after this, so don't reset transform/transition —
         // doing so snapped the sheet back into view for a frame before React removed the
         // node, producing a visible flicker of the (still-expanded-height) panel.
-        onExpandChangeRef.current?.(false);
         onCloseRef.current();
       }, 300);
     };
@@ -294,7 +287,14 @@ export default function AngleGraph({
       style={{ height: "45vh" }}
     >
       <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0 touch-none" />
-      <canvas ref={canvasRef} className="w-full flex-1 min-h-0" />
+      {/* pb-12 reserves room below the canvas for the fixed orthogonal-reference/grid
+          icons (bottom-2, ~2.5rem tall), which float over the sheet's bottom-right
+          corner. Padding lives on this wrapper, not the canvas itself — canvas is a
+          replaced element, so padding directly on it would scale its raster content
+          into a smaller box instead of just reserving blank space below it. */}
+      <div className="w-full flex-1 min-h-0 pb-12">
+        <canvas ref={canvasRef} className="w-full h-full" />
+      </div>
     </div>
   );
 }
