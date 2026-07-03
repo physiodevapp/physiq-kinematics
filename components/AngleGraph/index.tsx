@@ -7,6 +7,7 @@ import { formatJointName, getColorsForJoint } from "@/utils/joint";
 const MAX_POINTS = 300;
 const GRID_ANGLES = [45, 90, 135];
 const PAD = { top: 12, right: 76, bottom: 20, left: 34 };
+const DRAG_EASE = "transform 0.3s cubic-bezier(0.32,0.72,0,1)";
 
 function drawGraph(
   ctx: CanvasRenderingContext2D,
@@ -84,19 +85,26 @@ interface AngleGraphProps {
   jointDataRef: RefObject<JointDataMap>;
   selectedJoints: CanvasKeypointName[];
   isFrozen: boolean;
+  onClose: () => void;
 }
 
-export default function AngleGraph({ jointDataRef, selectedJoints, isFrozen }: AngleGraphProps) {
+export default function AngleGraph({ jointDataRef, selectedJoints, isFrozen, onClose }: AngleGraphProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const bufferRef = useRef<Map<string, number[]>>(new Map());
   const rafRef = useRef<number | null>(null);
   const lastDrawRef = useRef(0);
   const isFrozenRef = useRef(isFrozen);
   const selectedJointsRef = useRef(selectedJoints);
+  const onCloseRef = useRef(onClose);
 
   useEffect(() => {
     isFrozenRef.current = isFrozen;
   }, [isFrozen]);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     selectedJointsRef.current = selectedJoints;
@@ -107,6 +115,75 @@ export default function AngleGraph({ jointDataRef, selectedJoints, isFrozen }: A
       }
     }
   }, [selectedJoints]);
+
+  // Drag-to-dismiss touch handler
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+
+    let startY = 0, startTime = 0, dragging = false, delta = 0;
+    let snapTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const rect = sheet.getBoundingClientRect();
+      if (e.touches[0].clientY - rect.top > 72) return;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+      delta = 0;
+      dragging = true;
+      if (snapTimer) clearTimeout(snapTimer);
+      sheet.style.transition = "none";
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!dragging) return;
+      delta = Math.max(0, e.touches[0].clientY - startY);
+      sheet.style.transform = delta > 0 ? `translateY(${delta}px)` : "translateY(0)";
+    };
+
+    const onRelease = () => {
+      if (!dragging) return;
+      dragging = false;
+      const velocity = delta / (Date.now() - startTime);
+      if (delta > 80 || velocity > 0.3) {
+        sheet.style.transition = DRAG_EASE;
+        sheet.style.transform = "translateY(110%)";
+        setTimeout(() => {
+          sheet.style.transition = "none";
+          onCloseRef.current();
+          sheet.style.transform = "";
+          sheet.style.transition = "";
+        }, 300);
+      } else {
+        sheet.style.transition = DRAG_EASE;
+        sheet.style.transform = "translateY(0)";
+        snapTimer = setTimeout(() => {
+          sheet.style.transform = "";
+          sheet.style.transition = "";
+        }, 310);
+      }
+    };
+
+    const onTouchCancel = () => {
+      if (!dragging) return;
+      dragging = false;
+      sheet.style.transform = "";
+      sheet.style.transition = "";
+    };
+
+    sheet.addEventListener("touchstart", onTouchStart, { passive: true });
+    sheet.addEventListener("touchmove", onTouchMove, { passive: true });
+    sheet.addEventListener("touchend", onRelease, { passive: true });
+    sheet.addEventListener("touchcancel", onTouchCancel, { passive: true });
+
+    return () => {
+      sheet.removeEventListener("touchstart", onTouchStart);
+      sheet.removeEventListener("touchmove", onTouchMove);
+      sheet.removeEventListener("touchend", onRelease);
+      sheet.removeEventListener("touchcancel", onTouchCancel);
+      if (snapTimer) clearTimeout(snapTimer);
+    };
+  }, []);
 
   useEffect(() => {
     const tick = (now: number) => {
@@ -153,7 +230,7 @@ export default function AngleGraph({ jointDataRef, selectedJoints, isFrozen }: A
   }, [jointDataRef]);
 
   return (
-    <div className="absolute bottom-0 inset-x-0 z-20 bg-black/90 rounded-t-2xl animate-slide-up">
+    <div ref={sheetRef} className="absolute bottom-0 inset-x-0 z-20 bg-black/90 rounded-t-2xl animate-slide-up">
       <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2" />
       <canvas ref={canvasRef} className="w-full" style={{ height: "calc(45vh - 12px)" }} />
     </div>
