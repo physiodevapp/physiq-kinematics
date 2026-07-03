@@ -1,0 +1,44 @@
+name: Deploy to physiq hub
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-kinematics
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Clone physiq hub
+        run: |
+          git clone https://x-access-token:${{ secrets.PHYSIQ_DEPLOY_TOKEN }}@github.com/physiodevapp/physiq.git hub
+
+      - name: Copy build to hub
+        run: |
+          rm -rf hub/kinematics
+          cp -r out/ hub/kinematics
+
+      - name: Push to hub
+        run: |
+          cd hub
+          git config user.email "ci@physiq"
+          git config user.name "physiq-ci"
+          git add kinematics/
+          git diff --cached --quiet || git commit -m "deploy: update kinematics satellite"
+          git push
