@@ -154,17 +154,17 @@ export default function Home() {
   return (
     <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
 
-      {/* Title bar */}
-      <h1 className="absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none">
+      {/* Title bar — container is pointer-events-none so only explicit targets capture clicks */}
+      <h1 className="pointer-events-none absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none">
         {isInIframe && (
           <span
-            className="animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
+            className="pointer-events-auto animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
             style={{ opacity: 0.55 }}
             onClick={handleGoHome}
           >‹</span>
         )}
         <span
-          className={isInIframe ? "cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
+          className={isInIframe ? "pointer-events-auto cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
           onClick={isInIframe ? handleGoHome : undefined}
         >Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
         <span className="opacity-50 font-normal">—</span>
