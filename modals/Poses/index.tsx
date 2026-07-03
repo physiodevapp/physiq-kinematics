@@ -118,12 +118,14 @@ const Index = ({
                 className="absolute opacity-0 w-0 h-0"
               />
               <div
-                className={`w-6 h-6 border rounded-[0.4rem] flex items-center justify-center ${
-                  checkboxStates[index] ? "bg-white border-white" : "bg-white border-gray-600"
-                } ${checkboxStates[index] ? "opacity-100" : "opacity-40"}`}
+                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                  checkboxStates[index]
+                    ? "bg-[#5dadec] border-[#5dadec] opacity-100"
+                    : "bg-black/30 border-white/40 opacity-60"
+                }`}
               >
                 {checkboxStates[index] && (
-                  <CheckIcon className="w-4 h-4 text-[#5dadec] stroke-2" />
+                  <CheckIcon className="w-4 h-4 text-white stroke-[2.5]" />
                 )}
               </div>
             </label>
