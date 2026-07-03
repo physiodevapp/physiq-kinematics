@@ -20,16 +20,18 @@ const Index = ({ onClose }: IndexProps) => {
   const { angularHistorySize, poseModel } = settings.pose;
 
   const sheetRef = useRef<HTMLDivElement>(null);
-  useDraggableSheet(sheetRef, onClose);
+  // Content is short and never grows, so unlike AngleGraph this sheet only
+  // supports compact <-> dismissed (no swipe-up "expanded" snap point) and
+  // sizes to its content instead of reserving a fixed 45vh of mostly empty space.
+  useDraggableSheet(sheetRef, onClose, { allowExpand: false });
 
   return (
     <div
       ref={sheetRef}
       className="absolute bottom-0 inset-x-0 z-20 bg-black/90 rounded-t-2xl animate-slide-up flex flex-col touch-none"
-      style={{ height: "45vh" }}
     >
       <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0 touch-none" />
-      <div className="w-full flex-1 min-h-0 px-4 pt-4 pb-12 flex flex-col items-center">
+      <div className="w-full px-4 pt-4 pb-12 flex flex-col items-center">
         <div
           className="w-full h-9 flex justify-end shrink-0 text-white italic font-bold cursor-pointer"
           onClick={resetPoseSettings}
