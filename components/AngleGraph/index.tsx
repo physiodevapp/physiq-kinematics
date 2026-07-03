@@ -119,6 +119,12 @@ export default function AngleGraph({
     const sheet = sheetRef.current;
     if (!sheet) return;
 
+    // CSS animation fill (animate-slide-up, fill-mode: both) sits above inline styles in the
+    // cascade and would override every transform set by the drag handler.  Remove the class once
+    // the entrance animation finishes so inline style.transform takes full control.
+    const onAnimEnd = () => sheet.classList.remove("animate-slide-up");
+    sheet.addEventListener("animationend", onAnimEnd, { once: true });
+
     let snap: "compact" | "expanded" = "compact";
     let startY = 0, startTime = 0, dragging = false, delta = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -224,6 +230,7 @@ export default function AngleGraph({
     sheet.addEventListener("touchcancel", onTouchCancel, { passive: true });
 
     return () => {
+      sheet.removeEventListener("animationend", onAnimEnd);
       sheet.removeEventListener("touchstart", onTouchStart);
       sheet.removeEventListener("touchmove", onTouchMove);
       sheet.removeEventListener("touchend", onRelease);
