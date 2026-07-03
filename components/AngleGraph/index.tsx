@@ -158,12 +158,11 @@ export default function AngleGraph({
       sheet.style.transition = `transform ${EASE}`;
       sheet.style.transform = "translateY(110%)";
       timer = setTimeout(() => {
-        sheet.style.transition = "none";
+        // The component unmounts right after this, so don't reset transform/transition —
+        // doing so snapped the sheet back into view for a frame before React removed the
+        // node, producing a visible flicker of the (still-expanded-height) panel.
         onExpandChangeRef.current?.(false);
         onCloseRef.current();
-        sheet.style.transform = "";
-        void sheet.offsetHeight; // force reflow so the cleared transform doesn't transition back
-        sheet.style.transition = "";
       }, 300);
     };
 

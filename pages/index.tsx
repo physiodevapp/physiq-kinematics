@@ -114,6 +114,25 @@ export default function Home() {
     });
   }, []);
 
+  // Pose settings and the angle graph are both bottom sheets — keep them mutually
+  // exclusive so they never render stacked on top of each other.
+  const handleTogglePoseSettings = () => {
+    setIsPoseSettingsModalOpen((prev) => {
+      const next = !prev;
+      if (next) setShowGraph(false);
+      return next;
+    });
+  };
+
+  const handleToggleGraph = () => {
+    setShowGraph((prev) => {
+      const next = !prev;
+      if (next) setIsPoseSettingsModalOpen(false);
+      else setIsGraphExpanded(false);
+      return next;
+    });
+  };
+
   const toggleCamera = () => {
     setVideoConstraints((prev) => ({
       facingMode: prev.facingMode === "user" ? "environment" : "user",
@@ -234,12 +253,12 @@ export default function Home() {
 
         <Cog6ToothIcon
           className="h-6 w-6 cursor-pointer text-white"
-          onClick={() => setIsPoseSettingsModalOpen((prev) => !prev)}
+          onClick={handleTogglePoseSettings}
         />
 
         <PresentationChartLineIcon
           className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
-          onClick={() => setShowGraph((prev) => !prev)}
+          onClick={handleToggleGraph}
         />
 
         {/* Pose orientation picker */}
@@ -271,8 +290,13 @@ export default function Home() {
 
       {/* Bottom right controls — float above graph panel when visible */}
       <div
-        className="absolute right-1 z-30 flex flex-row-reverse items-center gap-2 transition-all duration-300"
-        style={{ bottom: showGraph ? (isGraphExpanded ? "calc(90vh + 0.5rem)" : "calc(45vh + 0.5rem)") : "0.5rem" }}
+        className="absolute right-1 z-30 flex flex-row-reverse items-center gap-2"
+        style={{
+          bottom: showGraph ? (isGraphExpanded ? "calc(90vh + 0.5rem)" : "calc(45vh + 0.5rem)") : "0.5rem",
+          // Match AngleGraph's own drag/resize easing so these icons stay glued to the
+          // sheet's top edge instead of lagging behind on a different curve.
+          transition: "bottom 0.3s cubic-bezier(0.32,0.72,0,1)",
+        }}
       >
         <ArrowTopRightOnSquareIcon
           className={`w-8 h-8 text-white transition-transform ${
