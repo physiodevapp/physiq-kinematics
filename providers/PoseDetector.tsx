@@ -38,6 +38,7 @@ export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTf
         if (detectorModel === poseModel) return;
 
         setIsDetectorReady(false);
+        detector?.dispose();
 
         let detectorInstance;
 

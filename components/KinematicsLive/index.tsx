@@ -88,6 +88,8 @@ const KinematicsLive = forwardRef<KinematicsLiveHandle, KinematicsLiveProps>((
 
   const orthogonalReferenceRef = useRef(orthogonalReference);
   const videoConstraintsRef = useRef(videoConstraints);
+  const lastVideoDimsRef = useRef({ width: 0, height: 0 });
+  const lastInputDimsRef = useRef({ width: 0, height: 0 });
 
   const { detector, detectorModel, minPoseScore, isDetectorReady } = usePoseDetector();
   const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
@@ -188,8 +190,11 @@ const KinematicsLive = forwardRef<KinematicsLiveHandle, KinematicsLiveProps>((
             const reducedWidth = Math.round(realWidth * scale);
             const reducedHeight = Math.round(realHeight * scale);
 
-            inputCanvas.width = reducedWidth;
-            inputCanvas.height = reducedHeight;
+            if (lastInputDimsRef.current.width !== reducedWidth || lastInputDimsRef.current.height !== reducedHeight) {
+              inputCanvas.width = reducedWidth;
+              inputCanvas.height = reducedHeight;
+              lastInputDimsRef.current = { width: reducedWidth, height: reducedHeight };
+            }
 
             const ctx = inputCanvas.getContext("2d");
             ctx?.drawImage(videoElement, 0, 0, reducedWidth, reducedHeight);
@@ -213,8 +218,13 @@ const KinematicsLive = forwardRef<KinematicsLiveHandle, KinematicsLiveProps>((
 
           if (!canvasRef.current) return;
 
-          canvasRef.current.width = videoElement.videoWidth;
-          canvasRef.current.height = videoElement.videoHeight;
+          const vw = videoElement.videoWidth;
+          const vh = videoElement.videoHeight;
+          if (lastVideoDimsRef.current.width !== vw || lastVideoDimsRef.current.height !== vh) {
+            canvasRef.current.width = vw;
+            canvasRef.current.height = vh;
+            lastVideoDimsRef.current = { width: vw, height: vh };
+          }
 
           const scaleFactor = getCanvasScaleFactor({
             canvas: canvasRef.current,
