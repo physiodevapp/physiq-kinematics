@@ -48,7 +48,6 @@ export default function Home() {
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
-  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
 
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
   const shouldResumeRef = useRef(false);
@@ -128,7 +127,6 @@ export default function Home() {
     setShowGraph((prev) => {
       const next = !prev;
       if (next) setIsPoseSettingsModalOpen(false);
-      else setIsGraphExpanded(false);
       return next;
     });
   };
@@ -288,16 +286,11 @@ export default function Home() {
         )}
       </section>
 
-      {/* Bottom right controls — float above graph panel when visible */}
-      <div
-        className="absolute right-1 z-30 flex flex-row-reverse items-center gap-2"
-        style={{
-          bottom: showGraph ? (isGraphExpanded ? "calc(90vh + 0.5rem)" : "calc(45vh + 0.5rem)") : "0.5rem",
-          // Match AngleGraph's own drag/resize easing so these icons stay glued to the
-          // sheet's top edge instead of lagging behind on a different curve.
-          transition: "bottom 0.3s cubic-bezier(0.32,0.72,0,1)",
-        }}
-      >
+      {/* Bottom right controls — fixed position; AngleGraph reserves bottom padding
+          so its content never renders underneath these instead of chasing the sheet
+          with an animated offset (which drifted out of sync with the sheet's own
+          transition). */}
+      <div className="absolute right-1 bottom-2 z-30 flex flex-row-reverse items-center gap-2">
         <ArrowTopRightOnSquareIcon
           className={`w-8 h-8 text-white transition-transform ${
             orthogonalReference === undefined ? "-rotate-0 opacity-50" : "-rotate-45"
@@ -323,8 +316,7 @@ export default function Home() {
           jointDataRef={jointDataRef}
           selectedJoints={selectedJoints}
           isFrozen={isFrozen}
-          onClose={() => { setShowGraph(false); setIsGraphExpanded(false); }}
-          onExpandChange={setIsGraphExpanded}
+          onClose={() => setShowGraph(false)}
         />
       )}
 
