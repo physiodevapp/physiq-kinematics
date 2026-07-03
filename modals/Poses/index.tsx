@@ -66,7 +66,7 @@ const Index = ({
       style={{ backdropFilter: "blur(30px)" }}
       onClick={handleModal}
     >
-      <p className="font-display absolute top-2 text-white text-base sm:text-lg bg-black/40 rounded-full py-1.5 px-6">
+      <p className="font-display absolute top-2 text-white text-base sm:text-lg bg-black/40 rounded-2xl py-1.5 px-6">
         Seleccionar articulaciones
       </p>
       <div

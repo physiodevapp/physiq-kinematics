@@ -136,7 +136,7 @@ export default function Home() {
 
       {/* Title bar */}
       <div className="absolute z-10 inset-x-0 text-center top-2 pointer-events-none">
-        <h1 className="font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-full py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw]">
+        <h1 className="font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw]">
           <span>Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
           <span className="opacity-50 font-normal">·</span>
           <span>Kinematics</span>
@@ -165,14 +165,14 @@ export default function Home() {
       </div>
 
       {/* Left toolbar */}
-      <section className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full">
+      <section className="absolute top-1 left-1 z-10 p-2 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-2xl">
         {isInIframe && (
           <HomeIcon className="w-6 h-6 text-white cursor-pointer" onClick={handleGoHome} />
         )}
       </section>
 
       {/* Right toolbar */}
-      <section className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-full">
+      <section className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-2xl">
         <div
           className="relative cursor-pointer"
           onClick={toggleCamera}
