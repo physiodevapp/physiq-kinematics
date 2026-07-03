@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 
-const EASE = "0.3s cubic-bezier(0.32,0.72,0,1)";
+const EASE_BEZIER = "cubic-bezier(0.32,0.72,0,1)";
+const SNAP_DURATION = 300; // drag-release transitions (expand/collapse/snapBack/dismiss)
+const QUICK_CLOSE_DURATION = 160; // programmatic close (e.g. switching between sheets)
+
+export type DraggableSheetHandle = {
+  // Animates the sheet out (faster than a drag-release dismiss) and then calls onClose.
+  // For callers that need to close a sheet programmatically — e.g. switching to a
+  // different sheet — instead of it just vanishing when its mount condition flips.
+  close: () => void;
+};
 
 // Multi-snap drag for bottom sheets: compact (45vh) ↔ expanded (90vh) ↔ dismissed.
 // Shared by AngleGraph and PoseSettings so both sheets behave identically.
@@ -13,10 +22,12 @@ export function useDraggableSheet(
   sheetRef: RefObject<HTMLDivElement | null>,
   onClose: () => void,
   options?: { allowExpand?: boolean }
-) {
+): DraggableSheetHandle {
   const allowExpand = options?.allowExpand ?? true;
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  const quickCloseRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const sheet = sheetRef.current;
@@ -36,15 +47,15 @@ export function useDraggableSheet(
 
     const expand = () => {
       snap = "expanded";
-      sheet.style.transition = `height ${EASE}`;
+      sheet.style.transition = `height ${SNAP_DURATION}ms ${EASE_BEZIER}`;
       sheet.style.height = "90vh";
       sheet.style.transform = "";
-      timer = setTimeout(() => { sheet.style.transition = ""; }, 310);
+      timer = setTimeout(() => { sheet.style.transition = ""; }, SNAP_DURATION + 10);
     };
 
     const collapse = () => {
       snap = "compact";
-      sheet.style.transition = `transform ${EASE}, height ${EASE}`;
+      sheet.style.transition = `transform ${SNAP_DURATION}ms ${EASE_BEZIER}, height ${SNAP_DURATION}ms ${EASE_BEZIER}`;
       sheet.style.transform = "translateY(0)";
       sheet.style.height = "45vh";
       timer = setTimeout(() => {
@@ -52,30 +63,32 @@ export function useDraggableSheet(
         sheet.style.transform = "";
         void sheet.offsetHeight; // force reflow before re-enabling transition
         sheet.style.transition = "";
-      }, 310);
+      }, SNAP_DURATION + 10);
     };
 
-    const dismiss = () => {
-      sheet.style.transition = `transform ${EASE}`;
+    const dismiss = (durationMs: number = SNAP_DURATION) => {
+      sheet.style.transition = `transform ${durationMs}ms ${EASE_BEZIER}`;
       sheet.style.transform = "translateY(110%)";
       timer = setTimeout(() => {
         // The component unmounts right after this, so don't reset transform/transition —
         // doing so snaps the sheet back into view for a frame before React removes the
         // node, producing a visible flicker of the (still-expanded-height) panel.
         onCloseRef.current();
-      }, 300);
+      }, durationMs);
     };
 
     const snapBack = () => {
-      sheet.style.transition = `transform ${EASE}`;
+      sheet.style.transition = `transform ${SNAP_DURATION}ms ${EASE_BEZIER}`;
       sheet.style.transform = "translateY(0)";
       timer = setTimeout(() => {
         sheet.style.transition = "none";
         sheet.style.transform = "";
         void sheet.offsetHeight; // force reflow before re-enabling transition
         sheet.style.transition = "";
-      }, 310);
+      }, SNAP_DURATION + 10);
     };
+
+    quickCloseRef.current = () => dismiss(QUICK_CLOSE_DURATION);
 
     const onTouchStart = (e: TouchEvent) => {
       const rect = sheet.getBoundingClientRect();
@@ -143,6 +156,13 @@ export function useDraggableSheet(
       sheet.removeEventListener("touchend", onRelease);
       sheet.removeEventListener("touchcancel", onTouchCancel);
       clearTimer();
+      quickCloseRef.current = null;
     };
-  }, [sheetRef]);
+  }, [sheetRef, allowExpand]);
+
+  const close = useCallback(() => {
+    quickCloseRef.current?.();
+  }, []);
+
+  return useMemo(() => ({ close }), [close]);
 }

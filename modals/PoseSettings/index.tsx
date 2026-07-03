@@ -1,16 +1,16 @@
 "use client";
 
 import { useSettings } from '@/providers/Settings';
-import { useDraggableSheet } from '@/hooks/useDraggableSheet';
+import { useDraggableSheet, type DraggableSheetHandle } from '@/hooks/useDraggableSheet';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
-import React, { useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 
 interface IndexProps {
   onClose: () => void;
 }
 
-const Index = ({ onClose }: IndexProps) => {
+const Index = forwardRef<DraggableSheetHandle, IndexProps>(function Index({ onClose }, ref) {
   const {
     settings,
     setAngularHistorySize,
@@ -23,7 +23,8 @@ const Index = ({ onClose }: IndexProps) => {
   // Content is short and never grows, so unlike AngleGraph this sheet only
   // supports compact <-> dismissed (no swipe-up "expanded" snap point) and
   // sizes to its content instead of reserving a fixed 45vh of mostly empty space.
-  useDraggableSheet(sheetRef, onClose, { allowExpand: false });
+  const sheetHandle = useDraggableSheet(sheetRef, onClose, { allowExpand: false });
+  useImperativeHandle(ref, () => sheetHandle, [sheetHandle]);
 
   return (
     <div
@@ -83,6 +84,6 @@ const Index = ({ onClose }: IndexProps) => {
       </div>
     </div>
   );
-};
+});
 
 export default Index;

@@ -23,6 +23,7 @@ import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import AngleGraph from "@/components/AngleGraph";
 import type { KinematicsLiveHandle } from "@/components/KinematicsLive";
+import type { DraggableSheetHandle } from "@/hooks/useDraggableSheet";
 
 const KinematicsLive = dynamic(
   () => import("../components/KinematicsLive").then((mod) => mod.default),
@@ -56,6 +57,8 @@ export default function Home() {
   const jointDataRef = useRef<JointDataMap>({});
   const jointWorkerRef = useRef<Worker | null>(null);
   const kinematicsLiveRef = useRef<KinematicsLiveHandle>(null);
+  const angleGraphRef = useRef<DraggableSheetHandle>(null);
+  const poseSettingsRef = useRef<DraggableSheetHandle>(null);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
@@ -116,21 +119,26 @@ export default function Home() {
   }, []);
 
   // Pose settings and the angle graph are both bottom sheets — keep them mutually
-  // exclusive so they never render stacked on top of each other.
+  // exclusive so they never render stacked on top of each other. Closing a sheet
+  // (whether re-tapping its own icon or switching to the other one) goes through
+  // its ref's animated close() instead of flipping the mount flag directly, so it
+  // slides out instead of vanishing instantly.
   const handleTogglePoseSettings = () => {
-    setIsPoseSettingsModalOpen((prev) => {
-      const next = !prev;
-      if (next) setShowGraph(false);
-      return next;
-    });
+    if (isPoseSettingsModalOpen) {
+      poseSettingsRef.current?.close();
+      return;
+    }
+    if (showGraph) angleGraphRef.current?.close();
+    setIsPoseSettingsModalOpen(true);
   };
 
   const handleToggleGraph = () => {
-    setShowGraph((prev) => {
-      const next = !prev;
-      if (next) setIsPoseSettingsModalOpen(false);
-      return next;
-    });
+    if (showGraph) {
+      angleGraphRef.current?.close();
+      return;
+    }
+    if (isPoseSettingsModalOpen) poseSettingsRef.current?.close();
+    setShowGraph(true);
   };
 
   // Mirrors KinematicsLive's handleClickOnCanvas: same guard (close modals first if
@@ -333,6 +341,7 @@ export default function Home() {
       {/* Real-time angle graph — bottom sheet */}
       {showGraph && (
         <AngleGraph
+          ref={angleGraphRef}
           jointDataRef={jointDataRef}
           selectedJoints={selectedJoints}
           isFrozen={isFrozen}
@@ -351,7 +360,7 @@ export default function Home() {
       />
 
       {isPoseSettingsModalOpen && (
-        <PoseSettingsModal onClose={() => setIsPoseSettingsModalOpen(false)} />
+        <PoseSettingsModal ref={poseSettingsRef} onClose={() => setIsPoseSettingsModalOpen(false)} />
       )}
     </main>
   );

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, type RefObject } from "react";
 import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
-import { useDraggableSheet } from "@/hooks/useDraggableSheet";
+import { useDraggableSheet, type DraggableSheetHandle } from "@/hooks/useDraggableSheet";
 
 const MAX_POINTS = 300;
 const GRID_ANGLES = [45, 90, 135];
@@ -83,12 +83,12 @@ interface AngleGraphProps {
   onClose: () => void;
 }
 
-export default function AngleGraph({
+const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function AngleGraph({
   jointDataRef,
   selectedJoints,
   isFrozen,
   onClose,
-}: AngleGraphProps) {
+}, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const bufferRef = useRef<Map<string, number[]>>(new Map());
@@ -108,7 +108,8 @@ export default function AngleGraph({
     }
   }, [selectedJoints]);
 
-  useDraggableSheet(sheetRef, onClose);
+  const sheetHandle = useDraggableSheet(sheetRef, onClose);
+  useImperativeHandle(ref, () => sheetHandle, [sheetHandle]);
 
   useEffect(() => {
     const tick = (now: number) => {
@@ -168,4 +169,6 @@ export default function AngleGraph({
       </div>
     </div>
   );
-}
+});
+
+export default AngleGraph;
