@@ -49,9 +49,12 @@ export const drawKeypointConnections = ({
   ctx.strokeStyle = strokeStyle;
   ctx.lineWidth = lineWidth;
 
+  const kpMap = new Map<string, poseDetection.Keypoint>();
+  keypoints.forEach((kp) => kpMap.set(kp.name!, kp));
+
   keypointPairs.forEach(([pointA, pointB]) => {
-    const kpA = keypoints.find((kp) => kp.name === pointA);
-    const kpB = keypoints.find((kp) => kp.name === pointB);
+    const kpA = kpMap.get(pointA);
+    const kpB = kpMap.get(pointB);
 
     if (kpA && kpB) {
       const xA = mirror ? ctx.canvas.width - kpA.x : kpA.x;
