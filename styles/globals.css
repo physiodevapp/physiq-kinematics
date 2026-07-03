@@ -36,53 +36,8 @@ body {
 
 @layer components {
   input[type="range"] {
-    appearance: none;
     width: 100%;
     cursor: pointer;
-    background: transparent;
-  }
-
-  input[type="range"]::-webkit-slider-runnable-track {
-    background: white;
-    border-radius: 9999px;
-    height: 8px;
-  }
-  input[type="range"]:disabled::-webkit-slider-runnable-track {
-    background: #9ca3af;
-    border-radius: 9999px;
-    height: 8px;
-  }
-
-  input[type="range"]::-webkit-slider-thumb {
-    appearance: none;
-    background: #5dadec;
-    margin-top: -5.4px;
-    width: 2rem;
-    height: 1.25rem;
-    border-radius: 0.5rem;
-    border: 2px solid #1f2937;
-  }
-  input[type="range"]:disabled::-webkit-slider-thumb {
-    appearance: none;
-    background: #6b7280;
-    margin-top: -5.4px;
-    width: 2rem;
-    height: 1.25rem;
-    border-radius: 0.5rem;
-    border: 2px solid #1f2937;
-  }
-
-  input[type="range"]::-moz-range-track {
-    background: #9ca3af;
-    border-radius: 9999px;
-    height: 8px;
-  }
-  input[type="range"]::-moz-range-thumb {
-    background: #5dadec;
-    border: none;
-    width: 2rem;
-    height: 1.25rem;
-    border-radius: 0.5rem;
-    border: 2px solid #1f2937;
+    accent-color: #5dadec;
   }
 }
