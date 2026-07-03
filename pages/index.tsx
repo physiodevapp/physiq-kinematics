@@ -17,9 +17,11 @@ import {
   ArrowTopRightOnSquareIcon,
   Bars2Icon,
   PauseIcon,
+  PresentationChartLineIcon,
 } from "@heroicons/react/24/outline";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
+import AngleGraph from "@/components/AngleGraph";
 
 const KinematicsLive = dynamic(
   () => import("../components/KinematicsLive").then((mod) => mod.default),
@@ -45,6 +47,7 @@ export default function Home() {
 
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
 
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
   const shouldResumeRef = useRef(false);
@@ -228,6 +231,11 @@ export default function Home() {
           onClick={() => setIsPoseSettingsModalOpen((prev) => !prev)}
         />
 
+        <PresentationChartLineIcon
+          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
+          onClick={() => setShowGraph((prev) => !prev)}
+        />
+
         {/* Pose orientation picker */}
         {showPoseOrientationModal && (
           <section className="absolute top-[0.2rem] right-full mr-2 flex flex-col gap-2">
@@ -255,8 +263,11 @@ export default function Home() {
         )}
       </section>
 
-      {/* Bottom right controls */}
-      <div className="absolute bottom-2 right-1 z-30 flex flex-row-reverse items-center gap-2">
+      {/* Bottom right controls — float above graph panel when visible */}
+      <div
+        className="absolute right-1 z-30 flex flex-row-reverse items-center gap-2 transition-all duration-300"
+        style={{ bottom: showGraph ? "calc(45vh + 0.5rem)" : "0.5rem" }}
+      >
         <ArrowTopRightOnSquareIcon
           className={`w-8 h-8 text-white transition-transform ${
             orthogonalReference === undefined ? "-rotate-0 opacity-50" : "-rotate-45"
@@ -275,6 +286,15 @@ export default function Home() {
           <Bars2Icon className="absolute top-[0.025rem] left-[0.026rem] rotate-90 h-8 w-8 text-white" />
         </div>
       </div>
+
+      {/* Real-time angle graph — bottom sheet */}
+      {showGraph && (
+        <AngleGraph
+          jointDataRef={jointDataRef}
+          selectedJoints={selectedJoints}
+          isFrozen={isFrozen}
+        />
+      )}
 
       {/* Modals */}
       <PoseModal
