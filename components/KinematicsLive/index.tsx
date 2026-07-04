@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import * as tf from '@tensorflow/tfjs-core';
@@ -21,10 +21,6 @@ import {
 import { jointConfigMap, formatJointName } from "@/utils/joint";
 import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 
-export type KinematicsLiveHandle = {
-  setIsFrozen: React.Dispatch<React.SetStateAction<boolean>>;
-};
-
 interface KinematicsLiveProps {
   orthogonalReference: OrthogonalReference;
   videoConstraints: VideoConstraints;
@@ -42,25 +38,22 @@ interface KinematicsLiveProps {
   onPoseOrientationInferredChange: (value: PoseOrientation | null) => void;
 }
 
-const KinematicsLive = forwardRef<KinematicsLiveHandle, KinematicsLiveProps>((
-  {
-    orthogonalReference,
-    videoConstraints,
-    anglesToDisplay,
-    setAnglesToDisplay,
-    isPoseSettingsModalOpen,
-    setIsPoseSettingsModalOpen,
-    jointWorkerRef,
-    jointDataRef,
-    onChangeIsFrozen,
-    onWorkerInit,
-    showGrid,
-    showPoseOrientationModal,
-    setShowPoseOrientationModal,
-    onPoseOrientationInferredChange,
-  },
-  ref
-) => {
+export default function KinematicsLive({
+  orthogonalReference,
+  videoConstraints,
+  anglesToDisplay,
+  setAnglesToDisplay,
+  isPoseSettingsModalOpen,
+  setIsPoseSettingsModalOpen,
+  jointWorkerRef,
+  jointDataRef,
+  onChangeIsFrozen,
+  onWorkerInit,
+  showGrid,
+  showPoseOrientationModal,
+  setShowPoseOrientationModal,
+  onPoseOrientationInferredChange,
+}: KinematicsLiveProps) {
   const { settings } = useSettings();
   const { selectedJoints, angularHistorySize, poseModel, poseOrientation } = settings.pose;
 
@@ -337,10 +330,6 @@ const KinematicsLive = forwardRef<KinematicsLiveHandle, KinematicsLiveProps>((
     }
   }, []);
 
-  useImperativeHandle(ref, () => ({
-    setIsFrozen,
-  }));
-
   return (
     <>
       {(!isCameraReady || !isDetectorReady || !detector) && (
@@ -402,8 +391,4 @@ const KinematicsLive = forwardRef<KinematicsLiveHandle, KinematicsLiveProps>((
       )}
     </>
   );
-});
-
-KinematicsLive.displayName = 'KinematicsLive';
-
-export default KinematicsLive;
+}
