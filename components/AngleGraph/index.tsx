@@ -7,7 +7,7 @@ import { useDraggableSheet, type DraggableSheetHandle } from "@/hooks/useDraggab
 
 const MAX_POINTS = 300;
 const GRID_ANGLES = [45, 90, 135];
-const PAD = { top: 12, right: 76, bottom: 20, left: 34 };
+const PAD = { top: 12, right: 4, bottom: 20, left: 34 };
 
 function drawGraph(
   ctx: CanvasRenderingContext2D,
@@ -23,6 +23,7 @@ function drawGraph(
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
   const xStep = plotW / (MAX_POINTS - 1);
+  const clamp = (v: number) => Math.min(Math.max(v, 0), 180);
 
   ctx.clearRect(0, 0, W, H);
   ctx.font = "9px 'DM Mono', monospace";
@@ -32,8 +33,8 @@ function drawGraph(
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(PAD.left, y);
-    ctx.lineTo(W - PAD.right, y);
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
     ctx.stroke();
     ctx.fillStyle = "rgba(255,255,255,0.75)";
     ctx.textAlign = "right";
@@ -45,17 +46,40 @@ function drawGraph(
   ctx.fillText("0°", PAD.left - 4, PAD.top + plotH + 4);
   ctx.fillText("180°", PAD.left - 4, PAD.top + 4);
 
+  const LINE_H = 11;
+  const LABEL_H = LINE_H * 2;
+  type LabelEntry = { joint: CanvasKeypointName; color: string; currentAngle: number; y: number };
+  const labels: LabelEntry[] = [];
+
   for (const joint of selectedJoints) {
     const buf = buffer.get(joint);
     if (!buf || buf.length === 0) continue;
+    const currentAngle = buf[buf.length - 1];
+    labels.push({
+      joint,
+      color: getColorsForJoint(joint).borderColor,
+      currentAngle,
+      y: PAD.top + plotH * (1 - clamp(currentAngle) / 180),
+    });
+  }
 
-    const color = getColorsForJoint(joint).borderColor;
+  labels.sort((a, b) => a.y - b.y);
+
+  for (let i = 1; i < labels.length; i++) {
+    if (labels[i].y < labels[i - 1].y + LABEL_H)
+      labels[i].y = labels[i - 1].y + LABEL_H;
+  }
+  for (let i = labels.length - 2; i >= 0; i--) {
+    if (labels[i].y + LABEL_H > labels[i + 1].y)
+      labels[i].y = labels[i + 1].y - LABEL_H;
+  }
+
+  for (const joint of selectedJoints) {
+    const buf = buffer.get(joint);
+    if (!buf || buf.length === 0) continue;
     const total = buf.length;
-    const currentAngle = buf[total - 1];
-    const clamp = (v: number) => Math.min(Math.max(v, 0), 180);
-    const currentY = PAD.top + plotH * (1 - clamp(currentAngle) / 180);
 
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = getColorsForJoint(joint).borderColor;
     ctx.lineWidth = 1.5;
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -67,12 +91,16 @@ function drawGraph(
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
-
-    ctx.fillStyle = color;
-    ctx.textAlign = "left";
-    ctx.fillText(formatJointName(joint), W - PAD.right + 5, currentY - 2);
-    ctx.fillText(`${Math.round(currentAngle)}°`, W - PAD.right + 5, currentY + 9);
   }
+
+  ctx.textAlign = "right";
+  const labelX = W - PAD.right - 2;
+  for (const { color, currentAngle, joint, y } of labels) {
+    ctx.fillStyle = color;
+    ctx.fillText(formatJointName(joint), labelX, y);
+    ctx.fillText(`${Math.round(currentAngle)}°`, labelX, y + LINE_H);
+  }
+
   ctx.restore();
 }
 
