@@ -29,18 +29,18 @@ function drawGraph(
 
   for (const deg of GRID_ANGLES) {
     const y = PAD.top + plotH * (1 - deg / 180);
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(PAD.left, y);
     ctx.lineTo(W - PAD.right, y);
     ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
     ctx.textAlign = "right";
     ctx.fillText(`${deg}°`, PAD.left - 4, y + 3);
   }
 
-  ctx.fillStyle = "rgba(255,255,255,0.3)";
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
   ctx.textAlign = "right";
   ctx.fillText("0°", PAD.left - 4, PAD.top + plotH + 4);
   ctx.fillText("180°", PAD.left - 4, PAD.top + 4);
