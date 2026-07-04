@@ -22,7 +22,6 @@ import {
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import AngleGraph from "@/components/AngleGraph";
-import type { KinematicsLiveHandle } from "@/components/KinematicsLive";
 import { QUICK_CLOSE_DURATION, type DraggableSheetHandle } from "@/hooks/useDraggableSheet";
 
 const KinematicsLive = dynamic(
@@ -56,7 +55,6 @@ export default function Home() {
 
   const jointDataRef = useRef<JointDataMap>({});
   const jointWorkerRef = useRef<Worker | null>(null);
-  const kinematicsLiveRef = useRef<KinematicsLiveHandle>(null);
   const angleGraphRef = useRef<DraggableSheetHandle>(null);
   const poseSettingsRef = useRef<DraggableSheetHandle>(null);
   const isSheetTransitioningRef = useRef(false);
@@ -164,18 +162,6 @@ export default function Home() {
     setShowGraph(true);
   };
 
-  // Mirrors KinematicsLive's handleClickOnCanvas: same guard (close modals first if
-  // one is open), same freeze toggle otherwise — so this title button truly behaves
-  // like tapping the video.
-  const handleTitlePauseClick = () => {
-    if (isPoseSettingsModalOpen || showPoseOrientationModal) {
-      setIsPoseSettingsModalOpen(false);
-      setShowPoseOrientationModal(false);
-    } else {
-      kinematicsLiveRef.current?.setIsFrozen((prev) => !prev);
-    }
-  };
-
   const toggleCamera = () => {
     setVideoConstraints((prev) => ({
       facingMode: prev.facingMode === "user" ? "environment" : "user",
@@ -217,21 +203,18 @@ export default function Home() {
   return (
     <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
 
-      {/* Title bar — blocks click-through to canvas; whole pill acts as resume when frozen */}
-      <h1
-        className={`absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none${isFrozen ? " cursor-pointer" : ""}`}
-        onClick={isFrozen ? handleTitlePauseClick : undefined}
-      >
+      {/* Title bar — status indicator only; pause/resume via canvas tap */}
+      <h1 className="absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none">
         {isInIframe && (
           <span
             className="animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
             style={{ opacity: 0.55 }}
-            onClick={(e) => { e.stopPropagation(); handleGoHome(); }}
+            onClick={handleGoHome}
           >‹</span>
         )}
         <span
           className={isInIframe ? "cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
-          onClick={isInIframe ? (e) => { e.stopPropagation(); handleGoHome(); } : undefined}
+          onClick={isInIframe ? handleGoHome : undefined}
         >Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
         <span className="opacity-50 font-normal">—</span>
         <span style={{ color: "#5dadec" }}>Kinematics</span>
@@ -244,7 +227,6 @@ export default function Home() {
       <div className="relative w-full flex-1">
         {isCameraActive && (
           <KinematicsLive
-            ref={kinematicsLiveRef}
             orthogonalReference={orthogonalReference}
             videoConstraints={videoConstraints}
             anglesToDisplay={anglesToDisplay}
