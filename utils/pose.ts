@@ -49,6 +49,7 @@ export const updateMultipleJoints = ({
   formatJointName,
   jointAngleHistorySize,
   setAnglesToDisplay,
+  onJointData,
   poseOrientation,
 }: {
   keypoints: poseDetection.Keypoint[];
@@ -60,6 +61,7 @@ export const updateMultipleJoints = ({
   formatJointName: (jointName: string) => string;
   jointAngleHistorySize: number;
   setAnglesToDisplay?: React.Dispatch<React.SetStateAction<string[]>>;
+  onJointData?: (data: JointDataMap) => void;
   poseOrientation: PoseOrientation | null;
 }): Promise<JointDataMap> => {
   return new Promise((resolve) => {
@@ -129,6 +131,8 @@ export const updateMultipleJoints = ({
           return hasChanged ? anglesToDisplay : prev;
         });
       }
+
+      if (onJointData) onJointData(updatedJointData);
 
       resolve(updatedJointData);
     };
