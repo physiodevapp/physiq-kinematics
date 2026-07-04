@@ -32,6 +32,23 @@ const KinematicsLive = dynamic(
   { ssr: false }
 );
 
+const KinematicsReview = dynamic(
+  () => import("../components/KinematicsReview").then((mod) => mod.default),
+  { ssr: false }
+);
+
+function getSupportedMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  const types = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    "video/mp4;codecs=avc1",
+    "video/mp4",
+  ];
+  return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
+}
+
 export default function Home() {
   const { basePath } = useRouter();
   const {
@@ -71,6 +88,19 @@ export default function Home() {
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoChunksRef = useRef<Blob[]>([]);
+
+  type ReviewData = {
+    videoBlob: Blob;
+    series: KinematicsSeries;
+    duration: number;
+    joints: CanvasKeypointName[];
+    facingMode: string;
+  };
+  const [reviewData, setReviewData] = useState<ReviewData | null>(null);
+
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
@@ -104,9 +134,43 @@ export default function Home() {
     recordingTimerRef.current = setInterval(() => {
       setRecordingDuration(Math.floor((Date.now() - recordingStartedAtRef.current) / 1000));
     }, 1000);
+
+    if (streamRef.current) {
+      videoChunksRef.current = [];
+      try {
+        const mimeType = getSupportedMimeType();
+        const mr = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : {});
+        mr.ondataavailable = (e) => {
+          if (e.data.size > 0) videoChunksRef.current.push(e.data);
+        };
+        mediaRecorderRef.current = mr;
+        mr.start(200);
+      } catch {
+        // MediaRecorder unavailable — review will show chart only
+      }
+    }
   };
 
-  const handleStopRecording = () => {
+  const stopMediaRecorder = (): Promise<Blob | null> =>
+    new Promise((resolve) => {
+      const mr = mediaRecorderRef.current;
+      if (!mr || mr.state === "inactive") {
+        resolve(null);
+        return;
+      }
+      mr.onstop = () => {
+        const chunks = videoChunksRef.current;
+        const blob = chunks.length > 0
+          ? new Blob(chunks, { type: mr.mimeType || "video/webm" })
+          : null;
+        videoChunksRef.current = [];
+        mediaRecorderRef.current = null;
+        resolve(blob);
+      };
+      mr.stop();
+    });
+
+  const handleStopRecording = async () => {
     isRecordingRef.current = false;
     setIsRecording(false);
     if (recordingTimerRef.current) {
@@ -114,19 +178,35 @@ export default function Home() {
       recordingTimerRef.current = null;
     }
     const duration = Date.now() - recordingStartedAtRef.current;
-    const series = kinematicsSeriesRef.current;
+    const series = { ...kinematicsSeriesRef.current };
+    kinematicsSeriesRef.current = {};
     if (!Object.keys(series).length) return;
-    const ch = new BroadcastChannel('physiq-session');
+
+    const videoBlob = await stopMediaRecorder();
+    setReviewData({
+      videoBlob: videoBlob ?? new Blob(),
+      series,
+      duration,
+      joints: [...selectedJoints],
+      facingMode: videoConstraints.facingMode ?? "user",
+    });
+  };
+
+  const handleSendToReport = () => {
+    if (!reviewData) return;
+    const { series, duration, joints } = reviewData;
+    const ch = new BroadcastChannel("physiq-session");
     ch.postMessage({
-      type: 'SESSION_KINEMATICS',
+      type: "SESSION_KINEMATICS",
       kinematics: {
         startedAt: recordingStartedAtRef.current,
         duration,
-        joints: selectedJoints,
+        joints,
         series,
       },
     });
     ch.close();
+    setReviewData(null);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setShowSentToast(true);
     toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
@@ -252,7 +332,22 @@ export default function Home() {
         setIsPoseSettingsModalOpen(false);
         setShowPoseOrientationModal(false);
         setIsPoseModalOpen(false);
-        if (isRecordingRef.current) handleStopRecording();
+        setReviewData(null);
+        if (isRecordingRef.current) {
+          isRecordingRef.current = false;
+          setIsRecording(false);
+          if (recordingTimerRef.current) {
+            clearInterval(recordingTimerRef.current);
+            recordingTimerRef.current = null;
+          }
+          const mr = mediaRecorderRef.current;
+          if (mr && mr.state !== "inactive") {
+            mr.onstop = null;
+            mr.stop();
+            mediaRecorderRef.current = null;
+          }
+          videoChunksRef.current = [];
+        }
       }
     };
 
@@ -326,6 +421,7 @@ export default function Home() {
             setShowPoseOrientationModal={setShowPoseOrientationModal}
             onPoseOrientationInferredChange={setPoseOrientationInferred}
             onJointData={handleJointData}
+            onStreamReady={(s) => { streamRef.current = s; }}
           />
         )}
       </div>
@@ -468,6 +564,18 @@ export default function Home() {
 
       {isPoseSettingsModalOpen && (
         <PoseSettingsModal ref={poseSettingsRef} onClose={() => setIsPoseSettingsModalOpen(false)} />
+      )}
+
+      {reviewData && (
+        <KinematicsReview
+          videoBlob={reviewData.videoBlob}
+          series={reviewData.series}
+          duration={reviewData.duration}
+          joints={reviewData.joints}
+          facingMode={reviewData.facingMode}
+          onSend={handleSendToReport}
+          onDiscard={() => setReviewData(null)}
+        />
       )}
     </main>
   );
