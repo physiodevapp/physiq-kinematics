@@ -47,11 +47,11 @@ const Index = ({
     { top: "20%", left: "20%" },
     { top: "35%", left: "15%" },
     { top: "50%", left: "30%" },
-    { top: "65%", left: "28%" },
+    { top: "71%", left: "28%" },
     { top: "20%", left: "80%" },
     { top: "35%", left: "85%" },
     { top: "50%", left: "70%" },
-    { top: "65%", left: "75%" },
+    { top: "71%", left: "75%" },
   ];
 
   useEffect(() => {
