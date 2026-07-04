@@ -89,12 +89,14 @@ export default function Home() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showSentToast, setShowSentToast] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [showNoDataToast, setShowNoDataToast] = useState(false);
   const isRecordingRef = useRef(false);
   const recordingStartedAtRef = useRef(0);
   const kinematicsSeriesRef = useRef<KinematicsSeries>({});
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noDataToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -193,7 +195,14 @@ export default function Home() {
     const duration = Date.now() - startedAt;
     const series = { ...kinematicsSeriesRef.current };
     kinematicsSeriesRef.current = {};
-    if (!Object.keys(series).length) return;
+
+    if (!Object.keys(series).length) {
+      await stopMediaRecorder();
+      if (noDataToastTimerRef.current) clearTimeout(noDataToastTimerRef.current);
+      setShowNoDataToast(true);
+      noDataToastTimerRef.current = setTimeout(() => setShowNoDataToast(false), 3000);
+      return;
+    }
 
     const videoBlob = await stopMediaRecorder();
     setReviewData({
@@ -368,6 +377,7 @@ export default function Home() {
         setRecordings([]);
         setShowRecordingsList(false);
         setShowSavedToast(false);
+        setShowNoDataToast(false);
         if (isRecordingRef.current) {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -452,6 +462,12 @@ export default function Home() {
       {showSentToast && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
           Cinemática enviada al informe
+        </div>
+      )}
+
+      {showNoDataToast && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
+          No se detectaron articulaciones durante la grabación
         </div>
       )}
 
