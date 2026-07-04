@@ -150,6 +150,10 @@ function paintChart(
   ctx.textAlign = onRight ? "left" : "right";
   const lx = onRight ? cx + 5 : cx - 5;
   for (const { color, text, y } of cursorLabels) {
+    const textWidth = ctx.measureText(text).width;
+    const boxX = onRight ? lx - 2 : lx - textWidth - 2;
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(boxX, y - 7, textWidth + 4, 10);
     ctx.fillStyle = color;
     ctx.fillText(text, lx, y + 3);
   }
@@ -246,6 +250,11 @@ export default function KinematicsReview({
     return () => cancelAnimationFrame(rafId);
   }, [joints, series, duration, yMax]);
 
+  const isInIframe = typeof window !== "undefined" && window.self !== window.top;
+  const handleGoHome = () => {
+    window.parent.postMessage({ type: "PHYSIQ_GO_HOME" }, "*");
+  };
+
   const scrub = (clientX: number) => {
     const cv = canvasRef.current;
     if (!cv || duration === 0) return;
@@ -263,10 +272,20 @@ export default function KinematicsReview({
       {/* Header */}
       <div className="shrink-0 bg-black/60">
         <div className="flex items-center justify-between px-4 py-3">
-          <h2 className="font-display text-white text-base">
-            Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span>
-            <span className="opacity-50 font-normal mx-1.5">—</span>
-            <span style={{ color: "#5dadec" }}>Revisión</span>
+          <h2 className="font-display text-white text-base inline-flex items-center gap-1.5">
+            {isInIframe && (
+              <span
+                className="animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
+                style={{ opacity: 0.55 }}
+                onClick={handleGoHome}
+              >‹</span>
+            )}
+            <span
+              className={isInIframe ? "cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
+              onClick={isInIframe ? handleGoHome : undefined}
+            >Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
+            <span className="opacity-50 font-normal">—</span>
+            <span style={{ color: "#5dadec" }}>Kinematics</span>
           </h2>
           <button onClick={onDiscard} className="p-1 -mr-1">
             <XMarkIcon className="h-5 w-5 text-white/50" />
@@ -292,7 +311,7 @@ export default function KinematicsReview({
             src={videoUrl}
             controls
             playsInline
-            className="w-full h-full object-contain"
+            className={`w-full h-full object-contain${facingMode === "user" ? " video-mirrored" : ""}`}
             style={facingMode === "user" ? { transform: "scaleX(-1)" } : undefined}
           />
         </div>
