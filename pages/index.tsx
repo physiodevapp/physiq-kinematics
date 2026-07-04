@@ -89,14 +89,13 @@ export default function Home() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showSentToast, setShowSentToast] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
-  const [showNoDataToast, setShowNoDataToast] = useState(false);
+  const [showNoDataDialog, setShowNoDataDialog] = useState(false);
   const isRecordingRef = useRef(false);
   const recordingStartedAtRef = useRef(0);
   const kinematicsSeriesRef = useRef<KinematicsSeries>({});
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const noDataToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -198,9 +197,7 @@ export default function Home() {
 
     if (!Object.keys(series).length) {
       await stopMediaRecorder();
-      if (noDataToastTimerRef.current) clearTimeout(noDataToastTimerRef.current);
-      setShowNoDataToast(true);
-      noDataToastTimerRef.current = setTimeout(() => setShowNoDataToast(false), 3000);
+      setShowNoDataDialog(true);
       return;
     }
 
@@ -377,7 +374,7 @@ export default function Home() {
         setRecordings([]);
         setShowRecordingsList(false);
         setShowSavedToast(false);
-        setShowNoDataToast(false);
+        setShowNoDataDialog(false);
         if (isRecordingRef.current) {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -465,9 +462,29 @@ export default function Home() {
         </div>
       )}
 
-      {showNoDataToast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
-          No se detectaron articulaciones durante la grabación
+      {showNoDataDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-6"
+          onClick={() => setShowNoDataDialog(false)}
+        >
+          <div
+            className="bg-black border border-white/15 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-white text-lg mb-2">Sin datos articulares</h3>
+            <p className="text-white/60 text-sm leading-relaxed mb-5">
+              No se detectaron articulaciones durante la grabación. Encuadra bien las articulaciones seleccionadas y vuelve a intentarlo.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowNoDataDialog(false)}
+                className="px-4 py-2 rounded-md text-sm text-white font-medium active:opacity-80"
+                style={{ background: "#5dadec" }}
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
