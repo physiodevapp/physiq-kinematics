@@ -217,26 +217,26 @@ export default function Home() {
   return (
     <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
 
-      {/* Title bar — pointer-events-auto blocks click-through to the canvas; only interactive children have onClick */}
-      <h1 className="absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none">
+      {/* Title bar — blocks click-through to canvas; whole pill acts as resume when frozen */}
+      <h1
+        className={`absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none${isFrozen ? " cursor-pointer" : ""}`}
+        onClick={isFrozen ? handleTitlePauseClick : undefined}
+      >
         {isInIframe && (
           <span
-            className="pointer-events-auto animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
+            className="animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
             style={{ opacity: 0.55 }}
-            onClick={handleGoHome}
+            onClick={(e) => { e.stopPropagation(); handleGoHome(); }}
           >‹</span>
         )}
         <span
-          className={isInIframe ? "pointer-events-auto cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
-          onClick={isInIframe ? handleGoHome : undefined}
+          className={isInIframe ? "cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
+          onClick={isInIframe ? (e) => { e.stopPropagation(); handleGoHome(); } : undefined}
         >Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
         <span className="opacity-50 font-normal">—</span>
         <span style={{ color: "#5dadec" }}>Kinematics</span>
         {isFrozen && (
-          <PauseIcon
-            className="pointer-events-auto cursor-pointer h-4 w-4 animate-pulse"
-            onClick={handleTitlePauseClick}
-          />
+          <PauseIcon className="h-4 w-4 animate-pulse" />
         )}
       </h1>
 
