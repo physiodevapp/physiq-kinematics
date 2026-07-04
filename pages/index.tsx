@@ -17,6 +17,7 @@ import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
   Bars2Icon,
+  FilmIcon,
   PauseIcon,
   PresentationChartLineIcon,
   StopIcon,
@@ -87,11 +88,13 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showSentToast, setShowSentToast] = useState(false);
+  const [showSavedToast, setShowSavedToast] = useState(false);
   const isRecordingRef = useRef(false);
   const recordingStartedAtRef = useRef(0);
   const kinematicsSeriesRef = useRef<KinematicsSeries>({});
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -208,6 +211,9 @@ export default function Home() {
     if (!reviewData) return;
     setRecordings((prev) => [...prev, reviewData]);
     setReviewData(null);
+    if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
+    setShowSavedToast(true);
+    savedToastTimerRef.current = setTimeout(() => setShowSavedToast(false), 2000);
   };
 
   const handleDeleteRecording = (id: number) => {
@@ -231,6 +237,8 @@ export default function Home() {
     setRecordings([]);
     setReviewData(null);
     setShowRecordingsList(false);
+    if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
+    setShowSavedToast(false);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setShowSentToast(true);
     toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
@@ -359,6 +367,7 @@ export default function Home() {
         setReviewData(null);
         setRecordings([]);
         setShowRecordingsList(false);
+        setShowSavedToast(false);
         if (isRecordingRef.current) {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -420,7 +429,25 @@ export default function Home() {
             </span>
           </>
         )}
+        {recordings.length > 0 && (
+          <>
+            <span className="opacity-30 font-normal">|</span>
+            <button
+              onClick={() => setShowRecordingsList(true)}
+              className="flex items-center gap-1 active:opacity-70"
+            >
+              <FilmIcon className="h-4 w-4" />
+              <span className="font-mono text-sm">{recordings.length}</span>
+            </button>
+          </>
+        )}
       </h1>
+
+      {showSavedToast && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
+          Grabación guardada · {recordings.length} en total
+        </div>
+      )}
 
       {showSentToast && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
@@ -499,32 +526,22 @@ export default function Home() {
           onClick={handleToggleGraph}
         />
 
-        <div className="relative">
-          <button
-            disabled={selectedJoints.length === 0 && !isRecording}
-            onClick={isRecording ? handleStopRecording : handleStartRecording}
-            className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
-              selectedJoints.length === 0 && !isRecording
-                ? "opacity-25 cursor-not-allowed"
-                : isRecording
-                ? "bg-red-500 animate-pulse"
-                : "border-2 border-white/70"
-            }`}
-          >
-            {isRecording
-              ? <StopIcon className="h-3.5 w-3.5 text-white" />
-              : <VideoCameraIcon className="h-4 w-4 text-white" />
-            }
-          </button>
-          {recordings.length > 0 && (
-            <button
-              onClick={() => setShowRecordingsList(true)}
-              className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-[#5dadec] text-[9px] text-white flex items-center justify-center font-mono"
-            >
-              {recordings.length}
-            </button>
-          )}
-        </div>
+        <button
+          disabled={selectedJoints.length === 0 && !isRecording}
+          onClick={isRecording ? handleStopRecording : handleStartRecording}
+          className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
+            selectedJoints.length === 0 && !isRecording
+              ? "opacity-25 cursor-not-allowed"
+              : isRecording
+              ? "bg-red-500 animate-pulse"
+              : "border-2 border-white/70"
+          }`}
+        >
+          {isRecording
+            ? <StopIcon className="h-3.5 w-3.5 text-white" />
+            : <VideoCameraIcon className="h-4 w-4 text-white" />
+          }
+        </button>
 
         {/* Pose orientation picker */}
         {showPoseOrientationModal && (
