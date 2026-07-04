@@ -36,6 +36,7 @@ interface KinematicsLiveProps {
   showPoseOrientationModal: boolean;
   setShowPoseOrientationModal: React.Dispatch<React.SetStateAction<boolean>>;
   onPoseOrientationInferredChange: (value: PoseOrientation | null) => void;
+  onJointData?: (data: JointDataMap) => void;
 }
 
 export default function KinematicsLive({
@@ -53,6 +54,7 @@ export default function KinematicsLive({
   showPoseOrientationModal,
   setShowPoseOrientationModal,
   onPoseOrientationInferredChange,
+  onJointData,
 }: KinematicsLiveProps) {
   const { settings } = useSettings();
   const { selectedJoints, angularHistorySize, poseModel, poseOrientation } = settings.pose;
@@ -283,6 +285,7 @@ export default function KinematicsLive({
                 orthogonalReference: orthogonalReferenceRef.current,
                 formatJointName,
                 setAnglesToDisplay,
+                onJointData,
                 poseOrientation: orientationAdjusted,
               });
             }

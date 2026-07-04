@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
+import type { KinematicsSeries } from "@/interfaces/kinematics";
 import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import { OrthogonalReference } from "@/providers/Settings";
@@ -18,6 +19,8 @@ import {
   Bars2Icon,
   PauseIcon,
   PresentationChartLineIcon,
+  StopIcon,
+  VideoCameraIcon,
 } from "@heroicons/react/24/outline";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
@@ -59,6 +62,15 @@ export default function Home() {
   const poseSettingsRef = useRef<DraggableSheetHandle>(null);
   const isSheetTransitioningRef = useRef(false);
 
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showSentToast, setShowSentToast] = useState(false);
+  const isRecordingRef = useRef(false);
+  const recordingStartedAtRef = useRef(0);
+  const kinematicsSeriesRef = useRef<KinematicsSeries>({});
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
@@ -68,6 +80,62 @@ export default function Home() {
 
   const handleGoHome = () => {
     window.parent.postMessage({ type: "PHYSIQ_GO_HOME" }, "*");
+  };
+
+  const handleJointData = useCallback((data: JointDataMap) => {
+    if (!isRecordingRef.current) return;
+    const elapsed = Date.now() - recordingStartedAtRef.current;
+    Object.entries(data).forEach(([joint, jointData]) => {
+      if (!jointData) return;
+      if (!kinematicsSeriesRef.current[joint]) {
+        kinematicsSeriesRef.current[joint] = { t: [], a: [] };
+      }
+      kinematicsSeriesRef.current[joint].t.push(elapsed);
+      kinematicsSeriesRef.current[joint].a.push(Math.round(jointData.angle));
+    });
+  }, []);
+
+  const handleStartRecording = () => {
+    kinematicsSeriesRef.current = {};
+    recordingStartedAtRef.current = Date.now();
+    isRecordingRef.current = true;
+    setIsRecording(true);
+    setRecordingDuration(0);
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingDuration(Math.floor((Date.now() - recordingStartedAtRef.current) / 1000));
+    }, 1000);
+  };
+
+  const handleStopRecording = () => {
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    const duration = Date.now() - recordingStartedAtRef.current;
+    const series = kinematicsSeriesRef.current;
+    if (!Object.keys(series).length) return;
+    const ch = new BroadcastChannel('physiq-session');
+    ch.postMessage({
+      type: 'SESSION_KINEMATICS',
+      kinematics: {
+        startedAt: recordingStartedAtRef.current,
+        duration,
+        joints: selectedJoints,
+        series,
+      },
+    });
+    ch.close();
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setShowSentToast(true);
+    toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
+  };
+
+  const formatRecordingDuration = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   const handleWorkerLifecycle = (start: boolean) => {
@@ -184,6 +252,7 @@ export default function Home() {
         setIsPoseSettingsModalOpen(false);
         setShowPoseOrientationModal(false);
         setIsPoseModalOpen(false);
+        if (isRecordingRef.current) handleStopRecording();
       }
     };
 
@@ -221,7 +290,22 @@ export default function Home() {
         {isFrozen && (
           <PauseIcon className="h-4 w-4 animate-pulse" />
         )}
+        {isRecording && (
+          <>
+            <span className="opacity-30 font-normal">|</span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+              <span className="font-mono text-sm text-red-400">{formatRecordingDuration(recordingDuration)}</span>
+            </span>
+          </>
+        )}
       </h1>
+
+      {showSentToast && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
+          Cinemática enviada al informe
+        </div>
+      )}
 
       {/* Camera feed + canvas — only mounted when satellite is visible */}
       <div className="relative w-full flex-1">
@@ -241,6 +325,7 @@ export default function Home() {
             showPoseOrientationModal={showPoseOrientationModal}
             setShowPoseOrientationModal={setShowPoseOrientationModal}
             onPoseOrientationInferredChange={setPoseOrientationInferred}
+            onJointData={handleJointData}
           />
         )}
       </div>
@@ -291,6 +376,23 @@ export default function Home() {
           className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
           onClick={handleToggleGraph}
         />
+
+        <button
+          disabled={selectedJoints.length === 0 && !isRecording}
+          onClick={isRecording ? handleStopRecording : handleStartRecording}
+          className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
+            selectedJoints.length === 0 && !isRecording
+              ? "opacity-25 cursor-not-allowed"
+              : isRecording
+              ? "bg-red-500 animate-pulse"
+              : "border-2 border-white/70"
+          }`}
+        >
+          {isRecording
+            ? <StopIcon className="h-3.5 w-3.5 text-white" />
+            : <VideoCameraIcon className="h-4 w-4 text-white" />
+          }
+        </button>
 
         {/* Pose orientation picker */}
         {showPoseOrientationModal && (
