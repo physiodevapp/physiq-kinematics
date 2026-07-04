@@ -6,7 +6,6 @@ import { formatJointName, getColorsForJoint } from "@/utils/joint";
 import { useDraggableSheet, type DraggableSheetHandle } from "@/hooks/useDraggableSheet";
 
 const MAX_POINTS = 300;
-const GRID_ANGLES = [45, 90, 135];
 const PAD = { top: 12, right: 4, bottom: 20, left: 34 };
 
 function drawGraph(
@@ -16,20 +15,22 @@ function drawGraph(
   dpr: number,
   selectedJoints: CanvasKeypointName[],
   buffer: Map<string, number[]>,
-  jointData: JointDataMap
+  jointData: JointDataMap,
+  yMax: number
 ) {
   ctx.save();
   ctx.scale(dpr, dpr);
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
   const xStep = plotW / (MAX_POINTS - 1);
-  const clamp = (v: number) => Math.min(Math.max(v, 0), 180);
+  const clamp = (v: number) => Math.min(Math.max(v, 0), yMax);
 
   ctx.clearRect(0, 0, W, H);
   ctx.font = "9px 'DM Mono', monospace";
 
-  for (const deg of GRID_ANGLES) {
-    const y = PAD.top + plotH * (1 - deg / 180);
+  const gridAngles = yMax === 90 ? [45] : yMax === 135 ? [45, 90] : [45, 90, 135];
+  for (const deg of gridAngles) {
+    const y = PAD.top + plotH * (1 - deg / yMax);
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -44,7 +45,7 @@ function drawGraph(
   ctx.fillStyle = "rgba(255,255,255,0.75)";
   ctx.textAlign = "right";
   ctx.fillText("0°", PAD.left - 4, PAD.top + plotH + 4);
-  ctx.fillText("180°", PAD.left - 4, PAD.top + 4);
+  ctx.fillText(`${yMax}°`, PAD.left - 4, PAD.top + 4);
 
   const LINE_H = 11;
   const LABEL_H = LINE_H * 2;
@@ -59,7 +60,7 @@ function drawGraph(
       joint,
       color: getColorsForJoint(joint).borderColor,
       currentAngle,
-      y: PAD.top + plotH * (1 - clamp(currentAngle) / 180),
+      y: PAD.top + plotH * (1 - clamp(currentAngle) / yMax),
     });
   }
 
@@ -86,7 +87,7 @@ function drawGraph(
 
     for (let i = 0; i < total; i++) {
       const x = PAD.left + plotW - (total - 1 - i) * xStep;
-      const y = PAD.top + plotH * (1 - clamp(buf[i]) / 180);
+      const y = PAD.top + plotH * (1 - clamp(buf[i]) / yMax);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
@@ -124,6 +125,7 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
   const lastDrawRef = useRef(0);
   const isFrozenRef = useRef(isFrozen);
   const selectedJointsRef = useRef(selectedJoints);
+  const scaleMaxRef = useRef(90);
 
   useEffect(() => { isFrozenRef.current = isFrozen; }, [isFrozen]);
 
@@ -162,6 +164,8 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
           buf.push(angle);
           if (buf.length > MAX_POINTS) buf.shift();
           bufferRef.current.set(joint, buf);
+          const step = angle <= 90 ? 90 : angle <= 135 ? 135 : 180;
+          if (step > scaleMaxRef.current) scaleMaxRef.current = step;
         }
       }
 
@@ -171,7 +175,7 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
       const ctx = cv.getContext("2d");
       if (!ctx) return;
 
-      drawGraph(ctx, cv.offsetWidth, cv.offsetHeight, dpr, selectedJointsRef.current, bufferRef.current, jointDataRef.current ?? {});
+      drawGraph(ctx, cv.offsetWidth, cv.offsetHeight, dpr, selectedJointsRef.current, bufferRef.current, jointDataRef.current ?? {}, scaleMaxRef.current);
     };
 
     rafRef.current = requestAnimationFrame(tick);
