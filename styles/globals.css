@@ -40,4 +40,12 @@ body {
     cursor: pointer;
     accent-color: #5dadec;
   }
+
+  /* The video element itself is mirrored (scaleX(-1)) to match the live
+     front-camera preview, which also mirrors the native controls overlay
+     (play button, timestamp, scrubber). Counter-mirror just the controls
+     so they render right-way-round; the two transforms cancel out. */
+  .video-mirrored::-webkit-media-controls-panel {
+    transform: scaleX(-1);
+  }
 }
