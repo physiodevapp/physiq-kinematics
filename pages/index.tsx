@@ -23,7 +23,7 @@ import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
 import AngleGraph from "@/components/AngleGraph";
 import type { KinematicsLiveHandle } from "@/components/KinematicsLive";
-import type { DraggableSheetHandle } from "@/hooks/useDraggableSheet";
+import { QUICK_CLOSE_DURATION, type DraggableSheetHandle } from "@/hooks/useDraggableSheet";
 
 const KinematicsLive = dynamic(
   () => import("../components/KinematicsLive").then((mod) => mod.default),
@@ -59,6 +59,7 @@ export default function Home() {
   const kinematicsLiveRef = useRef<KinematicsLiveHandle>(null);
   const angleGraphRef = useRef<DraggableSheetHandle>(null);
   const poseSettingsRef = useRef<DraggableSheetHandle>(null);
+  const isSheetTransitioningRef = useRef(false);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
@@ -123,21 +124,43 @@ export default function Home() {
   // (whether re-tapping its own icon or switching to the other one) goes through
   // its ref's animated close() instead of flipping the mount flag directly, so it
   // slides out instead of vanishing instantly.
+  //
+  // isPoseSettingsModalOpen/showGraph only flip once a close animation finishes
+  // (QUICK_CLOSE_DURATION later), so a toggle tap that lands mid-animation would
+  // still read the stale "open" value and misfire another close instead of
+  // reopening — a rapid gear/graph/gear/graph tap sequence could end with BOTH
+  // sheets closed. isSheetTransitioningRef locks out toggle taps for the duration
+  // of any in-flight close so only one transition is ever in flight at a time.
+  const lockSheetTransition = () => {
+    isSheetTransitioningRef.current = true;
+    setTimeout(() => { isSheetTransitioningRef.current = false; }, QUICK_CLOSE_DURATION);
+  };
+
   const handleTogglePoseSettings = () => {
+    if (isSheetTransitioningRef.current) return;
     if (isPoseSettingsModalOpen) {
+      lockSheetTransition();
       poseSettingsRef.current?.close();
       return;
     }
-    if (showGraph) angleGraphRef.current?.close();
+    if (showGraph) {
+      lockSheetTransition();
+      angleGraphRef.current?.close();
+    }
     setIsPoseSettingsModalOpen(true);
   };
 
   const handleToggleGraph = () => {
+    if (isSheetTransitioningRef.current) return;
     if (showGraph) {
+      lockSheetTransition();
       angleGraphRef.current?.close();
       return;
     }
-    if (isPoseSettingsModalOpen) poseSettingsRef.current?.close();
+    if (isPoseSettingsModalOpen) {
+      lockSheetTransition();
+      poseSettingsRef.current?.close();
+    }
     setShowGraph(true);
   };
 

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 
 const EASE_BEZIER = "cubic-bezier(0.32,0.72,0,1)";
 const SNAP_DURATION = 300; // drag-release transitions (expand/collapse/snapBack/dismiss)
-const QUICK_CLOSE_DURATION = 160; // programmatic close (e.g. switching between sheets)
+
+// programmatic close (e.g. switching between sheets). Exported so callers that
+// trigger close() imperatively can lock out further toggles for exactly this long.
+export const QUICK_CLOSE_DURATION = 160;
 
 export type DraggableSheetHandle = {
   // Animates the sheet out (faster than a drag-release dismiss) and then calls onClose.
