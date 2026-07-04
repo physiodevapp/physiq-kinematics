@@ -37,6 +37,11 @@ const KinematicsReview = dynamic(
   { ssr: false }
 );
 
+const KinematicsRecordingsList = dynamic(
+  () => import("../components/KinematicsRecordingsList").then((mod) => mod.default),
+  { ssr: false }
+);
+
 function getSupportedMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
   const types = [
@@ -93,6 +98,8 @@ export default function Home() {
   const videoChunksRef = useRef<Blob[]>([]);
 
   type ReviewData = {
+    id: number;
+    startedAt: number;
     videoBlob: Blob;
     series: KinematicsSeries;
     duration: number;
@@ -100,6 +107,8 @@ export default function Home() {
     facingMode: string;
   };
   const [reviewData, setReviewData] = useState<ReviewData | null>(null);
+  const [recordings, setRecordings] = useState<ReviewData[]>([]);
+  const [showRecordingsList, setShowRecordingsList] = useState(false);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
@@ -177,13 +186,16 @@ export default function Home() {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
-    const duration = Date.now() - recordingStartedAtRef.current;
+    const startedAt = recordingStartedAtRef.current;
+    const duration = Date.now() - startedAt;
     const series = { ...kinematicsSeriesRef.current };
     kinematicsSeriesRef.current = {};
     if (!Object.keys(series).length) return;
 
     const videoBlob = await stopMediaRecorder();
     setReviewData({
+      id: startedAt,
+      startedAt,
       videoBlob: videoBlob ?? new Blob(),
       series,
       duration,
@@ -192,21 +204,33 @@ export default function Home() {
     });
   };
 
-  const handleSendToReport = () => {
+  const handleAcceptAndRecordAnother = () => {
     if (!reviewData) return;
-    const { series, duration, joints } = reviewData;
+    setRecordings((prev) => [...prev, reviewData]);
+    setReviewData(null);
+  };
+
+  const handleDeleteRecording = (id: number) => {
+    setRecordings((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handleSendToReport = () => {
+    const all = reviewData ? [...recordings, reviewData] : recordings;
+    if (!all.length) return;
     const ch = new BroadcastChannel("physiq-session");
     ch.postMessage({
       type: "SESSION_KINEMATICS",
-      kinematics: {
-        startedAt: recordingStartedAtRef.current,
+      kinematics: all.map(({ startedAt, duration, joints, series }) => ({
+        startedAt,
         duration,
         joints,
         series,
-      },
+      })),
     });
     ch.close();
+    setRecordings([]);
     setReviewData(null);
+    setShowRecordingsList(false);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setShowSentToast(true);
     toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
@@ -333,6 +357,8 @@ export default function Home() {
         setShowPoseOrientationModal(false);
         setIsPoseModalOpen(false);
         setReviewData(null);
+        setRecordings([]);
+        setShowRecordingsList(false);
         if (isRecordingRef.current) {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -473,22 +499,32 @@ export default function Home() {
           onClick={handleToggleGraph}
         />
 
-        <button
-          disabled={selectedJoints.length === 0 && !isRecording}
-          onClick={isRecording ? handleStopRecording : handleStartRecording}
-          className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
-            selectedJoints.length === 0 && !isRecording
-              ? "opacity-25 cursor-not-allowed"
-              : isRecording
-              ? "bg-red-500 animate-pulse"
-              : "border-2 border-white/70"
-          }`}
-        >
-          {isRecording
-            ? <StopIcon className="h-3.5 w-3.5 text-white" />
-            : <VideoCameraIcon className="h-4 w-4 text-white" />
-          }
-        </button>
+        <div className="relative">
+          <button
+            disabled={selectedJoints.length === 0 && !isRecording}
+            onClick={isRecording ? handleStopRecording : handleStartRecording}
+            className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
+              selectedJoints.length === 0 && !isRecording
+                ? "opacity-25 cursor-not-allowed"
+                : isRecording
+                ? "bg-red-500 animate-pulse"
+                : "border-2 border-white/70"
+            }`}
+          >
+            {isRecording
+              ? <StopIcon className="h-3.5 w-3.5 text-white" />
+              : <VideoCameraIcon className="h-4 w-4 text-white" />
+            }
+          </button>
+          {recordings.length > 0 && (
+            <button
+              onClick={() => setShowRecordingsList(true)}
+              className="absolute -top-2 -right-2 h-4 w-4 rounded-full bg-[#5dadec] text-[9px] text-white flex items-center justify-center font-mono"
+            >
+              {recordings.length}
+            </button>
+          )}
+        </div>
 
         {/* Pose orientation picker */}
         {showPoseOrientationModal && (
@@ -573,8 +609,19 @@ export default function Home() {
           duration={reviewData.duration}
           joints={reviewData.joints}
           facingMode={reviewData.facingMode}
+          recordingNumber={recordings.length + 1}
           onSend={handleSendToReport}
           onDiscard={() => setReviewData(null)}
+          onAcceptAndRecordAnother={handleAcceptAndRecordAnother}
+        />
+      )}
+
+      {showRecordingsList && (
+        <KinematicsRecordingsList
+          recordings={recordings}
+          onDelete={handleDeleteRecording}
+          onSend={handleSendToReport}
+          onClose={() => setShowRecordingsList(false)}
         />
       )}
     </main>

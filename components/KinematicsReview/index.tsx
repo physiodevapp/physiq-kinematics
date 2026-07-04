@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
@@ -163,8 +163,10 @@ interface Props {
   duration: number;
   joints: CanvasKeypointName[];
   facingMode: string;
+  recordingNumber: number;
   onSend: () => void;
   onDiscard: () => void;
+  onAcceptAndRecordAnother: () => void;
 }
 
 export default function KinematicsReview({
@@ -173,8 +175,10 @@ export default function KinematicsReview({
   duration,
   joints,
   facingMode,
+  recordingNumber,
   onSend,
   onDiscard,
+  onAcceptAndRecordAnother,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -257,15 +261,27 @@ export default function KinematicsReview({
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-black/60">
-        <h2 className="font-display text-white text-base">
-          Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span>
-          <span className="opacity-50 font-normal mx-1.5">—</span>
-          <span style={{ color: "#5dadec" }}>Revisión</span>
-        </h2>
-        <button onClick={onDiscard} className="p-1 -mr-1">
-          <XMarkIcon className="h-5 w-5 text-white/50" />
-        </button>
+      <div className="shrink-0 bg-black/60">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h2 className="font-display text-white text-base">
+            Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span>
+            <span className="opacity-50 font-normal mx-1.5">—</span>
+            <span style={{ color: "#5dadec" }}>Revisión</span>
+          </h2>
+          <button onClick={onDiscard} className="p-1 -mr-1">
+            <XMarkIcon className="h-5 w-5 text-white/50" />
+          </button>
+        </div>
+        <div className="flex items-center justify-between px-4 pb-2">
+          <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
+          <button
+            onClick={onAcceptAndRecordAnother}
+            className="flex items-center gap-1 text-xs text-white/70 active:opacity-70"
+          >
+            <CameraIcon className="h-4 w-4" />
+            Cámara
+          </button>
+        </div>
       </div>
 
       {/* Video */}
