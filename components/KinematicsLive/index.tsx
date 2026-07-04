@@ -37,6 +37,7 @@ interface KinematicsLiveProps {
   setShowPoseOrientationModal: React.Dispatch<React.SetStateAction<boolean>>;
   onPoseOrientationInferredChange: (value: PoseOrientation | null) => void;
   onJointData?: (data: JointDataMap) => void;
+  onStreamReady?: (stream: MediaStream) => void;
 }
 
 export default function KinematicsLive({
@@ -55,6 +56,7 @@ export default function KinematicsLive({
   setShowPoseOrientationModal,
   onPoseOrientationInferredChange,
   onJointData,
+  onStreamReady,
 }: KinematicsLiveProps) {
   const { settings } = useSettings();
   const { selectedJoints, angularHistorySize, poseModel, poseOrientation } = settings.pose;
@@ -356,7 +358,10 @@ export default function KinematicsLive({
         videoConstraints={videoConstraints}
         muted
         mirrored={videoConstraints.facingMode === "user"}
-        onUserMedia={() => setIsCameraReady(true)}
+        onUserMedia={(stream) => {
+          setIsCameraReady(true);
+          onStreamReady?.(stream);
+        }}
       />
       <canvas ref={inputCanvasRef} style={{ display: "none" }} />
       <canvas
