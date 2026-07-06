@@ -16,6 +16,7 @@ import {
   Cog6ToothIcon,
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
+  ArrowUpTrayIcon,
   Bars2Icon,
   FilmIcon,
   PauseIcon,
@@ -40,6 +41,11 @@ const KinematicsReview = dynamic(
 
 const KinematicsRecordingsList = dynamic(
   () => import("../components/KinematicsRecordingsList").then((mod) => mod.default),
+  { ssr: false }
+);
+
+const VideoProcessor = dynamic(
+  () => import("../components/VideoProcessor").then((mod) => mod.default),
   { ssr: false }
 );
 
@@ -100,6 +106,9 @@ export default function Home() {
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoChunksRef = useRef<Blob[]>([]);
+
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   type ReviewData = {
     id: number;
@@ -250,6 +259,47 @@ export default function Home() {
     toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
   };
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+      setIsFrozen(true);
+    }
+    e.target.value = "";
+  };
+
+  const handleUploadComplete = (data: {
+    videoBlob: Blob;
+    series: KinematicsSeries;
+    duration: number;
+    joints: CanvasKeypointName[];
+  }) => {
+    setUploadFile(null);
+    setIsFrozen(false);
+    if (!Object.keys(data.series).length) {
+      setShowNoDataDialog(true);
+      return;
+    }
+    setReviewData({
+      id: Date.now(),
+      startedAt: Date.now(),
+      videoBlob: data.videoBlob,
+      series: data.series,
+      duration: data.duration,
+      joints: data.joints,
+      facingMode: "environment",
+    });
+  };
+
+  const handleUploadCancel = () => {
+    setUploadFile(null);
+    setIsFrozen(false);
+  };
+
   const formatRecordingDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
@@ -375,6 +425,7 @@ export default function Home() {
         setShowRecordingsList(false);
         setShowSavedToast(false);
         setShowNoDataDialog(false);
+        setUploadFile(null);
         if (isRecordingRef.current) {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -560,6 +611,18 @@ export default function Home() {
         />
 
         <button
+          disabled={selectedJoints.length === 0 || isRecording}
+          onClick={handleUploadClick}
+          className={`h-6 w-6 flex items-center justify-center ${
+            selectedJoints.length === 0 || isRecording
+              ? "opacity-25 cursor-not-allowed"
+              : ""
+          }`}
+        >
+          <ArrowUpTrayIcon className="h-6 w-6 text-white" />
+        </button>
+
+        <button
           disabled={selectedJoints.length === 0 && !isRecording}
           onClick={isRecording ? handleStopRecording : handleStartRecording}
           className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
@@ -672,6 +735,26 @@ export default function Home() {
           onDelete={handleDeleteRecording}
           onSend={handleSendToReport}
           onClose={() => setShowRecordingsList(false)}
+        />
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
+      {uploadFile && (
+        <VideoProcessor
+          file={uploadFile}
+          selectedJoints={selectedJoints}
+          poseOrientation={poseOrientation}
+          orthogonalReference={orthogonalReference}
+          angularHistorySize={settings.pose.angularHistorySize}
+          onComplete={handleUploadComplete}
+          onCancel={handleUploadCancel}
         />
       )}
     </main>
