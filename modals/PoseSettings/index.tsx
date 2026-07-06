@@ -4,7 +4,6 @@ import { useSettings } from '@/providers/Settings';
 import { useDraggableSheet, type DraggableSheetHandle } from '@/hooks/useDraggableSheet';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import * as poseDetection from '@tensorflow-models/pose-detection';
 
 interface IndexProps {
   onClose: () => void;
@@ -61,21 +60,13 @@ const Index = forwardRef<DraggableSheetHandle, IndexProps>(function Index({ onCl
                   type="checkbox"
                   value=""
                   className="sr-only peer"
-                  checked={poseModel === poseDetection.SupportedModels.BlazePose}
-                  onChange={() => {
-                    const next =
-                      poseModel === poseDetection.SupportedModels.MoveNet
-                        ? poseDetection.SupportedModels.BlazePose
-                        : poseDetection.SupportedModels.MoveNet;
-                    setPoseModel(next);
-                  }}
+                  checked={poseModel === 'full'}
+                  onChange={() => setPoseModel(poseModel === 'lite' ? 'full' : 'lite')}
                 />
                 <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-[#5dadec] transition-all duration-200" />
                 <div className="absolute left-0.5 top-0.5 w-5 h-5 rounded-full shadow bg-white peer-checked:translate-x-full transform transition-all duration-200" />
                 <span className="text-white text-sm pl-2">
-                  {poseModel === poseDetection.SupportedModels.BlazePose
-                    ? poseDetection.SupportedModels.BlazePose
-                    : poseDetection.SupportedModels.MoveNet}
+                  {poseModel === 'full' ? 'Full' : 'Lite'}
                 </span>
               </label>
             </div>

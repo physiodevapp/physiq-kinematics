@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import * as poseDetection from "@tensorflow-models/pose-detection";
-import * as tf from "@tensorflow/tfjs-core";
-import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
+import { CanvasKeypointName, JointDataMap, Keypoint } from "@/interfaces/pose";
 import type { KinematicsSeries } from "@/interfaces/kinematics";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { OrthogonalReference } from "@/providers/Settings";
@@ -47,8 +45,7 @@ export default function VideoProcessor({
   onCancel,
 }: VideoProcessorProps) {
   const { basePath } = useRouter();
-  const { detector, detectorModel, minPoseScore, isDetectorReady } =
-    usePoseDetector();
+  const { detector, minPoseScore, isDetectorReady } = usePoseDetector();
 
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<
@@ -59,7 +56,6 @@ export default function VideoProcessor({
   const cancelledRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const processingCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const inputCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const jointDataRef = useRef<JointDataMap>({});
   const objectUrlRef = useRef<string | null>(null);
@@ -79,9 +75,6 @@ export default function VideoProcessor({
     const procCanvas = document.createElement("canvas");
     processingCanvasRef.current = procCanvas;
 
-    const inCanvas = document.createElement("canvas");
-    inputCanvasRef.current = inCanvas;
-
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
     video.src = url;
@@ -93,7 +86,7 @@ export default function VideoProcessor({
         setErrorMsg("El detector de poses no está listo. Espera a que cargue.");
         return;
       }
-      processVideo(video, procCanvas, inCanvas, worker);
+      processVideo(video, procCanvas, worker);
     };
 
     video.addEventListener("loadedmetadata", handleLoaded, { once: true });
@@ -122,10 +115,21 @@ export default function VideoProcessor({
   async function processVideo(
     video: HTMLVideoElement,
     procCanvas: HTMLCanvasElement,
-    inCanvas: HTMLCanvasElement,
     worker: Worker
   ) {
     setStatus("processing");
+
+    const LANDMARK_NAMES = [
+      'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
+      'right_eye_inner', 'right_eye', 'right_eye_outer',
+      'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
+      'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+      'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
+      'left_index', 'right_index', 'left_thumb', 'right_thumb',
+      'left_hip', 'right_hip', 'left_knee', 'right_knee',
+      'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
+      'left_foot_index', 'right_foot_index',
+    ];
 
     const duration = video.duration * 1000;
     const vw = video.videoWidth;
@@ -152,82 +156,55 @@ export default function VideoProcessor({
 
       procCtx.drawImage(video, 0, 0, vw, vh);
 
-      let poses: poseDetection.Pose[] = [];
+      let keypoints: Keypoint[] = [];
 
       try {
-        if (
-          detectorModel === poseDetection.SupportedModels.BlazePose
-        ) {
-          const maxInputSize = 320;
-          const scale =
-            vw > vh ? maxInputSize / vw : maxInputSize / vh;
-          const rw = Math.round(vw * scale);
-          const rh = Math.round(vh * scale);
-
-          inCanvas.width = rw;
-          inCanvas.height = rh;
-          const inCtx = inCanvas.getContext("2d")!;
-          inCtx.drawImage(video, 0, 0, rw, rh);
-
-          const inputTensor = tf.browser.fromPixels(inCanvas);
-          poses = await detector!.estimatePoses(inputTensor);
-          inputTensor.dispose();
-
-          poses.forEach((pose) => {
-            pose.keypoints.forEach((kp) => {
-              kp.x = kp.x / scale;
-              kp.y = kp.y / scale;
-            });
-          });
-        } else {
-          poses = await detector!.estimatePoses(procCanvas, {
-            maxPoses: 1,
-            flipHorizontal: false,
-          });
+        const result = detector!.detectForVideo(procCanvas, currentTime * 1000 + 1);
+        if (result.landmarks.length > 0) {
+          keypoints = result.landmarks[0]
+            .map((lm, i) => ({
+              x: lm.x * vw,
+              y: lm.y * vh,
+              z: lm.z,
+              score: lm.visibility,
+              name: LANDMARK_NAMES[i],
+            }))
+            .filter(kp => (kp.score ?? 0) > minPoseScore && !excludedKeypoints.includes(kp.name!));
         }
       } catch {
         // skip frame on detection error
       }
 
-      if (poses.length > 0 && !cancelledRef.current) {
-        const keypoints = poses[0].keypoints.filter(
-          (kp) =>
-            kp.score &&
-            kp.score > minPoseScore &&
-            !excludedKeypoints.includes(kp.name!)
-        );
+      if (keypoints.length > 0 && selectedJoints.length > 0 && !cancelledRef.current) {
+        const rawOrientation =
+          poseOrientation === "auto" || poseOrientation === null
+            ? inferPoseOrientation(keypoints)
+            : poseOrientation;
+        const effectiveOrientation = rawOrientation
+          ? adjustOrientationForMirror(rawOrientation, isMirrored)
+          : null;
 
-        if (keypoints.length > 0 && selectedJoints.length > 0) {
-          const rawOrientation =
-            poseOrientation === "auto" || poseOrientation === null
-              ? inferPoseOrientation(keypoints)
-              : poseOrientation;
-          const effectiveOrientation = rawOrientation
-            ? adjustOrientationForMirror(rawOrientation, isMirrored)
-            : null;
+        const updatedJointData = await updateMultipleJoints({
+          keypoints,
+          selectedJoints,
+          jointDataRef,
+          jointConfigMap,
+          jointWorker: worker,
+          orthogonalReference,
+          formatJointName,
+          jointAngleHistorySize: angularHistorySize,
+          poseOrientation: effectiveOrientation,
+        });
 
-          const updatedJointData = await updateMultipleJoints({
-            keypoints,
-            selectedJoints,
-            jointDataRef,
-            jointConfigMap,
-            jointWorker: worker,
-            orthogonalReference,
-            formatJointName,
-            jointAngleHistorySize: angularHistorySize,
-            poseOrientation: effectiveOrientation,
-          });
-
-          const elapsedMs = currentTime * 1000;
-          Object.entries(updatedJointData).forEach(([joint, jd]) => {
-            if (!jd) return;
-            if (!series[joint]) {
-              series[joint] = { t: [], a: [] };
-            }
-            series[joint].t.push(elapsedMs);
-            series[joint].a.push(Math.round(jd.angle));
-          });
-        }
+        const elapsedMs = currentTime * 1000;
+        Object.entries(updatedJointData).forEach(([joint, jd]) => {
+          if (!jd) return;
+          if (!series[joint]) {
+            series[joint] = { t: [], a: [] };
+          }
+          series[joint].t.push(elapsedMs);
+          series[joint].a.push(Math.round(jd.angle));
+        });
       }
 
       currentTime += frameInterval;

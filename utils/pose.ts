@@ -1,6 +1,5 @@
-import { CanvasKeypointName, JointConfigMap, JointDataMap } from "@/interfaces/pose";
+import { CanvasKeypointName, JointConfigMap, JointDataMap, Keypoint } from "@/interfaces/pose";
 import { OrthogonalReference } from "@/providers/Settings";
-import * as poseDetection from '@tensorflow-models/pose-detection';
 import { RefObject } from "react";
 
 export type PoseOrientation = "front" | "back" | "left" | "right" | "auto";
@@ -52,7 +51,7 @@ export const updateMultipleJoints = ({
   onJointData,
   poseOrientation,
 }: {
-  keypoints: poseDetection.Keypoint[];
+  keypoints: Keypoint[];
   selectedJoints: CanvasKeypointName[];
   jointDataRef: RefObject<JointDataMap>;
   jointConfigMap: JointConfigMap;
@@ -151,7 +150,7 @@ export const updateMultipleJoints = ({
   });
 };
 
-export function inferPoseOrientation(keypoints: poseDetection.Keypoint[]): PoseOrientation | null {
+export function inferPoseOrientation(keypoints: Keypoint[]): PoseOrientation | null {
   const nose = keypoints.find(kp => kp.name === 'nose');
   const leftEar = keypoints.find(kp => kp.name === 'left_ear');
   const rightEar = keypoints.find(kp => kp.name === 'right_ear');

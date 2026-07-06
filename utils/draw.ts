@@ -1,10 +1,9 @@
-import { CanvasKeypointName } from "@/interfaces/pose";
-import * as poseDetection from "@tensorflow-models/pose-detection";
+import { CanvasKeypointName, Keypoint } from "@/interfaces/pose";
 import { getColorsForJoint } from "./joint";
 
 interface DrawKeypointsOptions {
   ctx: CanvasRenderingContext2D;
-  keypoints: poseDetection.Keypoint[];
+  keypoints: Keypoint[];
   selectedKeypoint?: CanvasKeypointName | null;
   pointColor?: string;
   pointRadius?: number;
@@ -31,7 +30,7 @@ export const drawKeypoints = ({
 
 interface DrawKeypointConnectionsOptions {
   ctx: CanvasRenderingContext2D;
-  keypoints: poseDetection.Keypoint[];
+  keypoints: Keypoint[];
   keypointPairs: [CanvasKeypointName, CanvasKeypointName][];
   strokeStyle?: string;
   lineWidth?: number;
@@ -49,7 +48,7 @@ export const drawKeypointConnections = ({
   ctx.strokeStyle = strokeStyle;
   ctx.lineWidth = lineWidth;
 
-  const kpMap = new Map<string, poseDetection.Keypoint>();
+  const kpMap = new Map<string, Keypoint>();
   keypoints.forEach((kp) => kpMap.set(kp.name!, kp));
 
   keypointPairs.forEach(([pointA, pointB]) => {

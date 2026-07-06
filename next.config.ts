@@ -8,11 +8,6 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  turbopack: {
-    resolveAlias: {
-      '@mediapipe/pose': './mocks/mediapipe-pose.js',
-    },
-  },
 };
 
 export default nextConfig;

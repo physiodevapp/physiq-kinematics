@@ -1,76 +1,83 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import * as poseDetection from '@tensorflow-models/pose-detection';
-import { useSettings } from './Settings';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
+import { useSettings, PoseModel } from './Settings';
 
-export type DetectorType = poseDetection.PoseDetector | null;
+export type DetectorType = PoseLandmarker | null;
 
 interface PoseDetectorContextType {
   detector: DetectorType;
-  detectorModel: poseDetection.SupportedModels | null;
+  detectorModel: PoseModel | null;
   minPoseScore: number;
   isDetectorReady: boolean;
 }
 
 const PoseDetectorContext = createContext<PoseDetectorContextType | null>(null);
 
-interface PoseDetectorProviderProps {
-  isTfReady: boolean;
-  children: React.ReactNode;
-}
+const MODEL_URLS: Record<PoseModel, string> = {
+  lite: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+  full: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',
+  heavy: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task',
+};
 
-export const PoseDetectorProvider: React.FC<PoseDetectorProviderProps> = ({ isTfReady, children }) => {
+const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
+
+export const PoseDetectorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [detector, setDetector] = useState<DetectorType>(null);
-  const [detectorModel, setDetectorModel] = useState<poseDetection.SupportedModels | null>(null);
+  const [detectorModel, setDetectorModel] = useState<PoseModel | null>(null);
   const [isDetectorReady, setIsDetectorReady] = useState(false);
-
-  const [minPoseScore] = useState(0.3);
+  const minPoseScore = 0.5;
 
   const { settings } = useSettings();
   const { poseModel } = settings.pose;
 
+  const activeRef = useRef<PoseLandmarker | null>(null);
+
   useEffect(() => {
-    if (!isTfReady) return;
+    if (detectorModel === poseModel) return;
 
-    const initializeDetector = async () => {
+    let cancelled = false;
+
+    const init = async () => {
       try {
-        if (detectorModel === poseModel) return;
-
         setIsDetectorReady(false);
-        detector?.dispose();
+        activeRef.current?.close();
+        activeRef.current = null;
 
-        let detectorInstance;
+        const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
 
-        if (poseModel === poseDetection.SupportedModels.MoveNet) {
-          detectorInstance = await poseDetection.createDetector(
-            poseDetection.SupportedModels.MoveNet,
-            {
-              modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-              minPoseScore,
-            },
-          );
-        } else if (poseModel === poseDetection.SupportedModels.BlazePose) {
-          detectorInstance = await poseDetection.createDetector(
-            poseDetection.SupportedModels.BlazePose,
-            {
-              runtime: 'tfjs',
-              enableSmoothing: true,
-              modelType: 'lite',
-            },
-          );
+        const instance = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: MODEL_URLS[poseModel],
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+          numPoses: 1,
+          minPoseDetectionConfidence: minPoseScore,
+          minPosePresenceConfidence: minPoseScore,
+          minTrackingConfidence: minPoseScore,
+        });
+
+        if (!cancelled) {
+          activeRef.current = instance;
+          setDetector(instance);
+          setDetectorModel(poseModel);
+          setIsDetectorReady(true);
+        } else {
+          instance.close();
         }
-
-        setDetector(detectorInstance!);
-        setDetectorModel(poseModel);
-        setIsDetectorReady(true);
       } catch (error) {
-        console.error("Error initializing detector:", error);
+        console.error('Error initializing MediaPipe detector:', error);
       }
     };
 
-    initializeDetector();
-  }, [isTfReady, detector, poseModel]);
+    init();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [poseModel]);
 
   return (
     <PoseDetectorContext.Provider value={{ detector, detectorModel, minPoseScore, isDetectorReady }}>
