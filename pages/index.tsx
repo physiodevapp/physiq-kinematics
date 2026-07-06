@@ -12,6 +12,7 @@ import { PoseOrientation } from "@/utils/pose";
 import { jointOptions, formatJointName } from "@/utils/joint";
 import {
   CameraIcon,
+  ChevronDownIcon,
   UserIcon,
   Cog6ToothIcon,
   ArrowPathIcon,
@@ -83,6 +84,7 @@ export default function Home() {
   const [showGraph, setShowGraph] = useState(false);
 
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const shouldResumeRef = useRef(false);
 
   const jointDataRef = useRef<JointDataMap>({});
@@ -600,44 +602,61 @@ export default function Home() {
           </button>
         </div>
 
-        <Cog6ToothIcon
-          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
-          onClick={handleTogglePoseSettings}
-        />
-
-        <PresentationChartLineIcon
-          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
-          onClick={handleToggleGraph}
-        />
-
         <button
-          disabled={selectedJoints.length === 0 || isRecording}
-          onClick={handleUploadClick}
-          className={`h-6 w-6 flex items-center justify-center ${
-            selectedJoints.length === 0 || isRecording
-              ? "opacity-25 cursor-not-allowed"
-              : ""
-          }`}
+          onClick={() => setIsToolbarExpanded((prev) => !prev)}
+          className="flex justify-center items-center"
         >
-          <ArrowUpTrayIcon className="h-6 w-6 text-white" />
+          <ChevronDownIcon
+            className={`h-4 w-4 text-white/70 transition-transform duration-200 ${isToolbarExpanded ? "rotate-180" : ""}`}
+          />
         </button>
 
-        <button
-          disabled={selectedJoints.length === 0 && !isRecording}
-          onClick={isRecording ? handleStopRecording : handleStartRecording}
-          className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
-            selectedJoints.length === 0 && !isRecording
-              ? "opacity-25 cursor-not-allowed"
-              : isRecording
-              ? "bg-red-500 animate-pulse"
-              : "border-2 border-white/70"
-          }`}
+        <div
+          className="flex flex-col gap-6 overflow-hidden transition-all duration-200"
+          style={{
+            maxHeight: isToolbarExpanded ? "300px" : "0px",
+            opacity: isToolbarExpanded ? 1 : 0,
+          }}
         >
-          {isRecording
-            ? <StopIcon className="h-3.5 w-3.5 text-white" />
-            : <VideoCameraIcon className="h-4 w-4 text-white" />
-          }
-        </button>
+          <Cog6ToothIcon
+            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
+            onClick={handleTogglePoseSettings}
+          />
+
+          <PresentationChartLineIcon
+            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
+            onClick={handleToggleGraph}
+          />
+
+          <button
+            disabled={selectedJoints.length === 0 || isRecording}
+            onClick={handleUploadClick}
+            className={`h-6 w-6 flex items-center justify-center ${
+              selectedJoints.length === 0 || isRecording
+                ? "opacity-25 cursor-not-allowed"
+                : ""
+            }`}
+          >
+            <ArrowUpTrayIcon className="h-6 w-6 text-white" />
+          </button>
+
+          <button
+            disabled={selectedJoints.length === 0 && !isRecording}
+            onClick={isRecording ? handleStopRecording : handleStartRecording}
+            className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
+              selectedJoints.length === 0 && !isRecording
+                ? "opacity-25 cursor-not-allowed"
+                : isRecording
+                ? "bg-red-500 animate-pulse"
+                : "border-2 border-white/70"
+            }`}
+          >
+            {isRecording
+              ? <StopIcon className="h-3.5 w-3.5 text-white" />
+              : <VideoCameraIcon className="h-4 w-4 text-white" />
+            }
+          </button>
+        </div>
 
         {/* Pose orientation picker */}
         {showPoseOrientationModal && (
