@@ -2,9 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
-import * as poseDetection from "@tensorflow-models/pose-detection";
-import * as tf from '@tensorflow/tfjs-core';
-import { JointDataMap, Kinematics } from "@/interfaces/pose";
+import { JointDataMap, Kinematics, Keypoint } from "@/interfaces/pose";
 import { VideoConstraints } from "@/interfaces/camera";
 import { usePoseDetector } from "@/providers/PoseDetector";
 import { OrthogonalReference, useSettings } from "@/providers/Settings";
@@ -20,6 +18,19 @@ import {
 } from "@/utils/pose";
 import { jointConfigMap, formatJointName } from "@/utils/joint";
 import { CloudArrowDownIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+
+// BlazePose 33 landmark names in index order
+const LANDMARK_NAMES = [
+  'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
+  'right_eye_inner', 'right_eye', 'right_eye_outer',
+  'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
+  'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+  'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
+  'left_index', 'right_index', 'left_thumb', 'right_thumb',
+  'left_hip', 'right_hip', 'left_knee', 'right_knee',
+  'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
+  'left_foot_index', 'right_foot_index',
+];
 
 interface KinematicsLiveProps {
   orthogonalReference: OrthogonalReference;
@@ -59,7 +70,7 @@ export default function KinematicsLive({
   onStreamReady,
 }: KinematicsLiveProps) {
   const { settings } = useSettings();
-  const { selectedJoints, angularHistorySize, poseModel, poseOrientation } = settings.pose;
+  const { selectedJoints, angularHistorySize, poseOrientation } = settings.pose;
 
   const [isCameraReady, setIsCameraReady] = useState(false);
 
@@ -78,7 +89,6 @@ export default function KinematicsLive({
   const hasTriggeredRef = useRef(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const inputCanvasRef = useRef<HTMLCanvasElement>(null);
   const webcamRef = useRef<Webcam>(null);
 
   const keypointRadiusBase = 2;
@@ -86,10 +96,9 @@ export default function KinematicsLive({
   const orthogonalReferenceRef = useRef(orthogonalReference);
   const videoConstraintsRef = useRef(videoConstraints);
   const lastVideoDimsRef = useRef({ width: 0, height: 0 });
-  const lastInputDimsRef = useRef({ width: 0, height: 0 });
 
-  const { detector, detectorModel, minPoseScore, isDetectorReady } = usePoseDetector();
-  const prevPoseModel = useRef<poseDetection.SupportedModels>(detectorModel);
+  const { detector, minPoseScore, isDetectorReady } = usePoseDetector();
+  const lastDetectionTimestampRef = useRef(0);
 
   const handleClickOnCanvas = () => {
     if (isPoseSettingsModalOpen || showPoseOrientationModal) {
@@ -122,10 +131,6 @@ export default function KinematicsLive({
   }, [visibleKinematics]);
 
   useEffect(() => {
-    prevPoseModel.current = poseModel;
-  }, [poseModel]);
-
-  useEffect(() => {
     orthogonalReferenceRef.current = orthogonalReference;
   }, [orthogonalReference]);
 
@@ -147,16 +152,15 @@ export default function KinematicsLive({
       !canvasRef.current
     ) return;
 
-    let poseModelChanged = prevPoseModel.current !== poseModel;
     let isMounted = true;
 
-    const analyzeFrame = async () => {
+    const analyzeFrame = () => {
       if (isFrozen || !isMounted) {
-        if (animationRef.current && !poseModelChanged) {
+        if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
           animationRef.current = null;
         }
-        if (webcamRef.current && webcamRef.current.video && !poseModelChanged) {
+        if (webcamRef.current?.video && !isFrozen) {
           webcamRef.current.video.pause();
         }
         return;
@@ -171,47 +175,14 @@ export default function KinematicsLive({
           videoElement.videoWidth > 0 &&
           videoElement.videoHeight > 0
         ) {
-          let poses = [];
-
-          if (detectorModel === poseDetection.SupportedModels.BlazePose) {
-            const inputCanvas = inputCanvasRef.current;
-            if (!inputCanvas) return;
-
-            const realWidth = videoElement.videoWidth;
-            const realHeight = videoElement.videoHeight;
-            const maxInputSize = 320;
-            const scale = realWidth > realHeight
-              ? maxInputSize / realWidth
-              : maxInputSize / realHeight;
-
-            const reducedWidth = Math.round(realWidth * scale);
-            const reducedHeight = Math.round(realHeight * scale);
-
-            if (lastInputDimsRef.current.width !== reducedWidth || lastInputDimsRef.current.height !== reducedHeight) {
-              inputCanvas.width = reducedWidth;
-              inputCanvas.height = reducedHeight;
-              lastInputDimsRef.current = { width: reducedWidth, height: reducedHeight };
-            }
-
-            const ctx = inputCanvas.getContext("2d");
-            ctx?.drawImage(videoElement, 0, 0, reducedWidth, reducedHeight);
-
-            const inputTensor = tf.browser.fromPixels(inputCanvas);
-            poses = await detector.estimatePoses(inputTensor);
-            inputTensor.dispose();
-
-            poses.forEach(pose => {
-              pose.keypoints.forEach(kp => {
-                kp.x = kp.x / scale;
-                kp.y = kp.y / scale;
-              });
-            });
-          } else {
-            poses = await detector!.estimatePoses(videoElement, {
-              maxPoses: 1,
-              flipHorizontal: false,
-            });
+          const now = performance.now();
+          if (now === lastDetectionTimestampRef.current) {
+            animationRef.current = requestAnimationFrame(analyzeFrame);
+            return;
           }
+          lastDetectionTimestampRef.current = now;
+
+          const result = detector.detectForVideo(videoElement, now);
 
           if (!canvasRef.current) return;
 
@@ -225,21 +196,26 @@ export default function KinematicsLive({
 
           const scaleFactor = getCanvasScaleFactor({
             canvas: canvasRef.current,
-            sourceDimensions: {
-              width: videoElement.videoWidth,
-              height: videoElement.videoHeight,
-            },
+            sourceDimensions: { width: vw, height: vh },
           });
 
-          if (poses.length > 0) {
+          if (result.landmarks.length > 0) {
             const ctx = canvasRef.current.getContext("2d");
 
             if (ctx) {
               ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-              const keypoints = poses[0].keypoints.filter(kp =>
-                kp.score &&
-                kp.score > minPoseScore &&
+              const rawLandmarks = result.landmarks[0];
+              const allKeypoints: Keypoint[] = rawLandmarks.map((lm, i) => ({
+                x: lm.x * vw,
+                y: lm.y * vh,
+                z: lm.z,
+                score: lm.visibility,
+                name: LANDMARK_NAMES[i],
+              }));
+
+              const keypoints = allKeypoints.filter(kp =>
+                (kp.score ?? 0) > minPoseScore &&
                 !excludedKeypoints.includes(kp.name!)
               );
               const drawableKeypoints = keypoints.filter(kp => !excludedDrawableKeypoints.includes(kp.name!));
@@ -300,11 +276,7 @@ export default function KinematicsLive({
       if (!isFrozen) {
         animationRef.current = requestAnimationFrame(analyzeFrame);
 
-        if (
-          webcamRef.current &&
-          webcamRef.current.video &&
-          webcamRef.current.video.paused
-        ) {
+        if (webcamRef.current?.video?.paused) {
           webcamRef.current.video.play();
         }
       }
@@ -314,8 +286,6 @@ export default function KinematicsLive({
 
     return () => {
       isMounted = false;
-      poseModelChanged = prevPoseModel.current !== poseModel;
-
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
@@ -341,7 +311,7 @@ export default function KinematicsLive({
         <div className="fixed w-full h-dvh z-50 text-white bg-black/80 flex flex-col items-center justify-center gap-4">
           <p>
             {!detector
-              ? "Setting up Tensorflow..."
+              ? "Setting up MediaPipe..."
               : !isDetectorReady
               ? "Setting up the model..."
               : "Initializing camera..."}
@@ -363,7 +333,6 @@ export default function KinematicsLive({
           onStreamReady?.(stream);
         }}
       />
-      <canvas ref={inputCanvasRef} style={{ display: "none" }} />
       <canvas
         ref={canvasRef}
         className={`absolute top-0 object-cover h-full w-full ${!isCameraReady ? "hidden" : ""}`}

@@ -1,5 +1,12 @@
 import { OrthogonalReference } from '@/providers/Settings';
-import type * as poseDetection from '@tensorflow-models/pose-detection';
+
+export interface Keypoint {
+  x: number;
+  y: number;
+  z?: number;
+  score?: number;
+  name?: string;
+}
 
 export enum CanvasKeypointName {
   LEFT_SHOULDER = "left_shoulder",
@@ -44,7 +51,7 @@ export interface JointData {
 export type JointDataMap = Partial<{ [K in CanvasKeypointName]: JointData }>;
 
 export interface UpdateJointParams {
-  keypoints: poseDetection.Keypoint[];
+  keypoints: Keypoint[];
   jointData: JointData | null;
   jointName: CanvasKeypointName;
   ctx?: CanvasRenderingContext2D;

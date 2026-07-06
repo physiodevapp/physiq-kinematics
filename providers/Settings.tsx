@@ -2,15 +2,15 @@
 
 import { CanvasKeypointName } from '@/interfaces/pose';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import * as poseDetection from '@tensorflow-models/pose-detection';
 import { PoseOrientation } from '@/utils/pose';
 
 export type OrthogonalReference = 'vertical' | undefined;
+export type PoseModel = 'lite' | 'full' | 'heavy';
 
 interface PoseSettings {
   selectedJoints: CanvasKeypointName[];
   angularHistorySize: number;
-  poseModel: poseDetection.SupportedModels;
+  poseModel: PoseModel;
   orthogonalReference: OrthogonalReference;
   poseOrientation: PoseOrientation | null;
 }
@@ -23,7 +23,7 @@ interface SettingsContextProps {
   settings: Settings;
   setSelectedJoints: (joints: CanvasKeypointName[]) => void;
   setAngularHistorySize: (size: number) => void;
-  setPoseModel: (value: poseDetection.SupportedModels) => void;
+  setPoseModel: (value: PoseModel) => void;
   setOrthogonalReference: (value: OrthogonalReference) => void;
   setPoseOrientation: (value: PoseOrientation | null) => void;
   resetPoseSettings: () => void;
@@ -36,7 +36,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     pose: {
       selectedJoints: [],
       angularHistorySize: 5,
-      poseModel: poseDetection.SupportedModels.MoveNet,
+      poseModel: 'lite' as PoseModel,
       orthogonalReference: undefined,
       poseOrientation: "auto",
     },
@@ -60,7 +60,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  const setPoseModel = (value: poseDetection.SupportedModels) => {
+  const setPoseModel = (value: PoseModel) => {
     setSettings(prev => ({ ...prev, pose: { ...prev.pose, poseModel: value } }));
   };
 
