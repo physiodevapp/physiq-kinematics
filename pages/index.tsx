@@ -616,6 +616,7 @@ export default function Home() {
           style={{
             maxHeight: isToolbarExpanded ? "300px" : "0px",
             opacity: isToolbarExpanded ? 1 : 0,
+            marginTop: isToolbarExpanded ? undefined : "-1.5rem",
           }}
         >
           <Cog6ToothIcon
