@@ -619,14 +619,14 @@ export default function Home() {
             marginTop: isToolbarExpanded ? undefined : "-1.5rem",
           }}
         >
-          <Cog6ToothIcon
-            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
-            onClick={handleTogglePoseSettings}
-          />
-
           <PresentationChartLineIcon
             className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
             onClick={handleToggleGraph}
+          />
+
+          <Cog6ToothIcon
+            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
+            onClick={handleTogglePoseSettings}
           />
 
           <button
