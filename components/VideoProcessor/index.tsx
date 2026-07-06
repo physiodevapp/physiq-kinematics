@@ -11,6 +11,8 @@ import { OrthogonalReference } from "@/providers/Settings";
 import {
   excludedKeypoints,
   updateMultipleJoints,
+  inferPoseOrientation,
+  adjustOrientationForMirror,
   PoseOrientation,
 } from "@/utils/pose";
 import { jointConfigMap, formatJointName } from "@/utils/joint";
@@ -20,6 +22,7 @@ const PROCESS_FPS = 15;
 
 interface VideoProcessorProps {
   file: File;
+  isMirrored: boolean;
   selectedJoints: CanvasKeypointName[];
   poseOrientation: PoseOrientation | null;
   orthogonalReference: OrthogonalReference;
@@ -35,6 +38,7 @@ interface VideoProcessorProps {
 
 export default function VideoProcessor({
   file,
+  isMirrored,
   selectedJoints,
   poseOrientation,
   orthogonalReference,
@@ -194,6 +198,14 @@ export default function VideoProcessor({
         );
 
         if (keypoints.length > 0 && selectedJoints.length > 0) {
+          const rawOrientation =
+            poseOrientation === "auto" || poseOrientation === null
+              ? inferPoseOrientation(keypoints)
+              : poseOrientation;
+          const effectiveOrientation = rawOrientation
+            ? adjustOrientationForMirror(rawOrientation, isMirrored)
+            : null;
+
           const updatedJointData = await updateMultipleJoints({
             keypoints,
             selectedJoints,
@@ -203,7 +215,7 @@ export default function VideoProcessor({
             orthogonalReference,
             formatJointName,
             jointAngleHistorySize: angularHistorySize,
-            poseOrientation,
+            poseOrientation: effectiveOrientation,
           });
 
           const elapsedMs = currentTime * 1000;

@@ -110,6 +110,8 @@ export default function Home() {
   const videoChunksRef = useRef<Blob[]>([]);
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [uploadIsMirrored, setUploadIsMirrored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   type ReviewData = {
@@ -268,10 +270,21 @@ export default function Home() {
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadFile(file);
-      setIsFrozen(true);
+      setPendingUploadFile(file);
     }
     e.target.value = "";
+  };
+
+  const handleConfirmUpload = (isMirrored: boolean) => {
+    if (!pendingUploadFile) return;
+    setUploadIsMirrored(isMirrored);
+    setUploadFile(pendingUploadFile);
+    setPendingUploadFile(null);
+    setIsFrozen(true);
+  };
+
+  const handleCancelPendingUpload = () => {
+    setPendingUploadFile(null);
   };
 
   const handleUploadComplete = (data: {
@@ -293,7 +306,7 @@ export default function Home() {
       series: data.series,
       duration: data.duration,
       joints: data.joints,
-      facingMode: "environment",
+      facingMode: uploadIsMirrored ? "user" : "environment",
     });
   };
 
@@ -766,9 +779,39 @@ export default function Home() {
         onChange={handleFileSelected}
       />
 
+      {pendingUploadFile && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center px-8 gap-6">
+          <p className="text-white text-center text-sm leading-relaxed">
+            ¿Con qué cámara se grabó el vídeo?
+          </p>
+          <div className="flex flex-col w-full max-w-xs gap-3">
+            <button
+              onClick={() => handleConfirmUpload(true)}
+              className="w-full py-3 rounded-md text-sm font-medium text-white active:opacity-80"
+              style={{ background: "#5dadec" }}
+            >
+              Cámara frontal
+            </button>
+            <button
+              onClick={() => handleConfirmUpload(false)}
+              className="w-full py-3 rounded-md text-sm font-medium text-white active:opacity-80 border border-white/20 bg-white/5"
+            >
+              Cámara trasera
+            </button>
+          </div>
+          <button
+            onClick={handleCancelPendingUpload}
+            className="text-white/40 text-sm"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       {uploadFile && (
         <VideoProcessor
           file={uploadFile}
+          isMirrored={uploadIsMirrored}
           selectedJoints={selectedJoints}
           poseOrientation={poseOrientation}
           orthogonalReference={orthogonalReference}
