@@ -22,7 +22,6 @@ import {
   PauseIcon,
   PresentationChartLineIcon,
   StopIcon,
-  VideoCameraIcon,
 } from "@heroicons/react/24/outline";
 import PoseModal from "@/modals/Poses";
 import PoseSettingsModal from "@/modals/PoseSettings";
@@ -396,10 +395,13 @@ export default function Home() {
         {isRecording && (
           <>
             <span className="opacity-30 font-normal">|</span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+            <button
+              onClick={handleStopRecording}
+              className="flex items-center gap-1 active:opacity-70"
+            >
+              <StopIcon className="h-3.5 w-3.5 text-red-500 animate-pulse" />
               <span className="font-mono text-sm text-red-400">{formatRecordingDuration(recordingDuration)}</span>
-            </span>
+            </button>
           </>
         )}
         {recordings.length > 0 && (
@@ -466,7 +468,7 @@ export default function Home() {
             setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
             jointWorkerRef={jointWorkerRef}
             jointDataRef={jointDataRef}
-            onChangeIsFrozen={setIsFrozen}
+            onChangeIsFrozen={(frozen) => { if (!isRecordingRef.current) setIsFrozen(frozen); }}
             onWorkerInit={() => handleWorkerLifecycle(true)}
             showGrid={showGrid}
             showPoseOrientationModal={showPoseOrientationModal}
@@ -540,23 +542,6 @@ export default function Home() {
             className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
             onClick={handleTogglePoseSettings}
           />
-
-          <button
-            disabled={selectedJoints.length === 0 && !isRecording}
-            onClick={isRecording ? handleStopRecording : handleStartRecording}
-            className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
-              selectedJoints.length === 0 && !isRecording
-                ? "opacity-25 cursor-not-allowed"
-                : isRecording
-                ? "bg-red-500 animate-pulse"
-                : "border-2 border-white/70"
-            }`}
-          >
-            {isRecording
-              ? <StopIcon className="h-3.5 w-3.5 text-white" />
-              : <VideoCameraIcon className="h-4 w-4 text-white" />
-            }
-          </button>
         </div>
 
         {/* Pose orientation picker */}
@@ -615,6 +600,10 @@ export default function Home() {
           selectedJoints={selectedJoints}
           isFrozen={isFrozen}
           onClose={() => setShowGraph(false)}
+          isRecording={isRecording}
+          recordingDuration={recordingDuration}
+          onStartRecording={handleStartRecording}
+          onStopRecording={handleStopRecording}
         />
       )}
 

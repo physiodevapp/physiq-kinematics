@@ -4,6 +4,13 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, type RefObject } fr
 import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
 import { useDraggableSheet, type DraggableSheetHandle } from "@/hooks/useDraggableSheet";
+import { StopIcon, VideoCameraIcon } from "@heroicons/react/24/outline";
+
+function fmtDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+  const s = (seconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
 
 const MAX_POINTS = 300;
 const PAD = { top: 12, right: 4, bottom: 20, left: 34 };
@@ -110,6 +117,10 @@ interface AngleGraphProps {
   selectedJoints: CanvasKeypointName[];
   isFrozen: boolean;
   onClose: () => void;
+  isRecording: boolean;
+  recordingDuration: number;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
 }
 
 const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function AngleGraph({
@@ -117,6 +128,10 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
   selectedJoints,
   isFrozen,
   onClose,
+  isRecording,
+  recordingDuration,
+  onStartRecording,
+  onStopRecording,
 }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -191,6 +206,34 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
       style={{ height: "45vh" }}
     >
       <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0 touch-none" />
+
+      {/* Record / stop button row */}
+      <div className="shrink-0 flex items-center justify-end px-3 py-1 touch-none">
+        <button
+          disabled={selectedJoints.length === 0 && !isRecording}
+          onClick={isRecording ? onStopRecording : onStartRecording}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
+            selectedJoints.length === 0 && !isRecording
+              ? "opacity-25 cursor-not-allowed text-white"
+              : isRecording
+              ? "text-red-400 animate-pulse"
+              : "text-white/70 active:opacity-70"
+          }`}
+        >
+          {isRecording ? (
+            <>
+              <StopIcon className="h-3.5 w-3.5 text-red-500" />
+              <span className="font-mono">{fmtDuration(recordingDuration)}</span>
+            </>
+          ) : (
+            <>
+              <VideoCameraIcon className="h-3.5 w-3.5" />
+              Grabar
+            </>
+          )}
+        </button>
+      </div>
+
       {/* pb-12 reserves room below the canvas for the fixed orthogonal-reference/grid
           icons (bottom-2, ~2.5rem tall), which float over the sheet's bottom-right
           corner. Padding lives on this wrapper, not the canvas itself — canvas is a
