@@ -45,7 +45,14 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settings, setSettings] = useState<Settings>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("physiq-kinematics-settings");
-      return stored ? JSON.parse(stored) : defaultConfig;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const validModels: PoseModel[] = ['lite', 'full', 'heavy'];
+        if (!validModels.includes(parsed?.pose?.poseModel)) {
+          parsed.pose = { ...defaultConfig.pose, selectedJoints: parsed?.pose?.selectedJoints ?? [] };
+        }
+        return parsed;
+      }
     }
     return defaultConfig;
   });
