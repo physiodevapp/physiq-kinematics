@@ -539,7 +539,7 @@ export default function Home() {
           >
             <h3 className="font-display text-white text-lg mb-2">Sin datos articulares</h3>
             <p className="text-white/60 text-sm leading-relaxed mb-5">
-              No se detectaron articulaciones durante la grabación. Encuadra bien las articulaciones seleccionadas y vuelve a intentarlo.
+              No se detectaron articulaciones en el vídeo. Asegúrate de que la persona aparece completa en el encuadre y con buena iluminación.
             </p>
             <div className="flex justify-end">
               <button

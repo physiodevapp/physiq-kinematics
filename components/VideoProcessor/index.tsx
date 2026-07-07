@@ -70,6 +70,9 @@ export default function VideoProcessor({
     video.playsInline = true;
     video.muted = true;
     video.preload = "auto";
+    // Must be in the DOM for reliable loadedmetadata/seeked events in mobile WebViews
+    video.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none";
+    document.body.appendChild(video);
     videoRef.current = video;
 
     const procCanvas = document.createElement("canvas");
@@ -77,13 +80,17 @@ export default function VideoProcessor({
 
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
-    video.src = url;
 
     const handleLoaded = () => {
       if (cancelledRef.current) return;
       if (!detector || !isDetectorReady) {
         setStatus("error");
         setErrorMsg("El detector de poses no está listo. Espera a que cargue.");
+        return;
+      }
+      if (!isFinite(video.duration) || video.duration <= 0) {
+        setStatus("error");
+        setErrorMsg("No se pudo determinar la duración del vídeo.");
         return;
       }
       processVideo(video, procCanvas, worker);
@@ -101,10 +108,16 @@ export default function VideoProcessor({
       { once: true }
     );
 
+    video.src = url;
+    video.load();
+
     return () => {
       cancelledRef.current = true;
       worker.terminate();
       workerRef.current = null;
+      if (videoRef.current && videoRef.current.parentNode) {
+        videoRef.current.parentNode.removeChild(videoRef.current);
+      }
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current);
         objectUrlRef.current = null;
@@ -145,6 +158,7 @@ export default function VideoProcessor({
 
     let currentTime = 0;
     let frameCount = 0;
+    let detectionErrors = 0;
 
     while (currentTime <= video.duration && !cancelledRef.current) {
       video.currentTime = currentTime;
@@ -172,7 +186,7 @@ export default function VideoProcessor({
             .filter(kp => (kp.score ?? 0) > minPoseScore && !excludedKeypoints.includes(kp.name!));
         }
       } catch {
-        // skip frame on detection error
+        detectionErrors++;
       }
 
       if (keypoints.length > 0 && selectedJoints.length > 0 && !cancelledRef.current) {
@@ -218,6 +232,13 @@ export default function VideoProcessor({
     if (cancelledRef.current) return;
 
     setProgress(1);
+
+    if (frameCount > 0 && detectionErrors / frameCount > 0.5) {
+      setStatus("error");
+      setErrorMsg("El detector de poses falló durante el procesamiento. Vuelve a intentarlo.");
+      return;
+    }
+
     setStatus("done");
 
     onComplete({
