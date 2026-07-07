@@ -404,7 +404,7 @@ export default function KinematicsReview({
       </div>
 
       {/* Angle chart — fills all available space */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden relative">
         <canvas
           ref={canvasRef}
           className="w-full h-full touch-none"
@@ -457,28 +457,10 @@ export default function KinematicsReview({
             draggingRef.current = false;
           }}
         />
-      </div>
 
-      {/* Edit action bar */}
-      {editMode && (
-        <>
-          <div className="shrink-0 flex gap-3 px-4 pt-2">
-            <button
-              onClick={handleCancelSelection}
-              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-            >
-              Cancelar selección
-            </button>
-            <button
-              disabled={!selRange}
-              onClick={handleInterpolate}
-              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
-              style={{ background: "#5dadec" }}
-            >
-              Interpolar tramo
-            </button>
-          </div>
-          <div className="shrink-0 px-4 pt-3">
+        {/* Edit bottom sheet overlay — slider + undo, floats above chart */}
+        {editMode && (
+          <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl px-4 pt-4 pb-3" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}>
             <div className="flex justify-between mb-2">
               <span className="font-mono text-xs text-white/40">Mín. selección</span>
               <span className="font-mono text-xs text-white/60">
@@ -494,36 +476,55 @@ export default function KinematicsReview({
               onChange={e => setMinRangeMs(Number(e.target.value))}
               className="w-full accent-[#5dadec]"
             />
-          </div>
-          {prevWorkingSeries && (
-            <div className="shrink-0 px-4 pt-2">
+            {prevWorkingSeries && (
               <button
                 onClick={handleUndo}
-                className="w-full py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+                className="w-full mt-3 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
               >
                 Deshacer interpolación
               </button>
-            </div>
-          )}
-        </>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* Action buttons */}
-      {!editMode && <div className="shrink-0 flex gap-3 px-4 py-4">
-        <button
-          onClick={onDiscard}
-          className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-        >
-          Descartar
-        </button>
-        <button
-          onClick={() => onSend(workingSeries)}
-          className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
-          style={{ background: "#5dadec" }}
-        >
-          Enviar al informe
-        </button>
-      </div>}
+      {/* Action row — always same position; swaps buttons in edit mode */}
+      <div className="shrink-0 flex gap-3 px-4 py-4">
+        {editMode ? (
+          <>
+            <button
+              onClick={handleCancelSelection}
+              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+            >
+              Cancelar selección
+            </button>
+            <button
+              disabled={!selRange}
+              onClick={handleInterpolate}
+              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
+              style={{ background: "#5dadec" }}
+            >
+              Interpolar tramo
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={onDiscard}
+              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+            >
+              Descartar
+            </button>
+            <button
+              onClick={() => onSend(workingSeries)}
+              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
+              style={{ background: "#5dadec" }}
+            >
+              Enviar al informe
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
