@@ -5,8 +5,20 @@ import { CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
+import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 
 const PAD = { top: 16, right: 8, bottom: 28, left: 36 };
+
+const WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
+const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+const MIN_SCORE = 0.3;
+
+// Upper-body skeleton connections (landmark indices)
+const POSE_CONNECTIONS: [number, number][] = [
+  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+  [11, 23], [12, 24], [23, 24],
+  [23, 25], [25, 27], [24, 26], [26, 28],
+];
 
 function fmtTime(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -161,6 +173,65 @@ function paintChart(
   ctx.restore();
 }
 
+function drawSkeleton(
+  canvas: HTMLCanvasElement,
+  landmarks: { x: number; y: number; visibility?: number }[],
+  videoW: number,
+  videoH: number,
+  mirror: boolean,
+) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const cW = canvas.offsetWidth;
+  const cH = canvas.offsetHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(cW * dpr);
+  canvas.height = Math.round(cH * dpr);
+
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cW, cH);
+
+  // Compute letterbox rect
+  const scale = Math.min(cW / videoW, cH / videoH);
+  const rW = videoW * scale;
+  const rH = videoH * scale;
+  const offX = (cW - rW) / 2;
+  const offY = (cH - rH) / 2;
+
+  const toX = (nx: number) => {
+    const x = mirror ? (1 - nx) : nx;
+    return offX + x * rW;
+  };
+  const toY = (ny: number) => offY + ny * rH;
+
+  // Draw connections
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1.5;
+  for (const [a, b] of POSE_CONNECTIONS) {
+    const lmA = landmarks[a];
+    const lmB = landmarks[b];
+    if (!lmA || !lmB) continue;
+    if ((lmA.visibility ?? 1) < MIN_SCORE || (lmB.visibility ?? 1) < MIN_SCORE) continue;
+    ctx.beginPath();
+    ctx.moveTo(toX(lmA.x), toY(lmA.y));
+    ctx.lineTo(toX(lmB.x), toY(lmB.y));
+    ctx.stroke();
+  }
+
+  // Draw keypoints
+  for (const lm of landmarks) {
+    if ((lm.visibility ?? 1) < MIN_SCORE) continue;
+    ctx.beginPath();
+    ctx.arc(toX(lm.x), toY(lm.y), 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(93,173,236,0.9)";
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 interface Props {
   videoBlob: Blob;
   series: KinematicsSeries;
@@ -186,8 +257,10 @@ export default function KinematicsReview({
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const skeletonCanvasRef = useRef<HTMLCanvasElement>(null);
   const curMsRef = useRef(0);
   const draggingRef = useRef(false);
+  const detectorRef = useRef<PoseLandmarker | null>(null);
 
   const yMax = useMemo(() => {
     let mx = 0;
@@ -200,6 +273,7 @@ export default function KinematicsReview({
 
   const hasVideo = videoBlob.size > 0;
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const mirror = facingMode === "user";
 
   useEffect(() => {
     if (!hasVideo) return;
@@ -207,6 +281,75 @@ export default function KinematicsReview({
     setVideoUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [videoBlob, hasVideo]);
+
+  // Build local IMAGE/CPU detector for skeleton overlay
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
+        const lm = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
+          runningMode: "IMAGE",
+          numPoses: 1,
+          minPoseDetectionConfidence: MIN_SCORE,
+          minPosePresenceConfidence: MIN_SCORE,
+          minTrackingConfidence: MIN_SCORE,
+        });
+        if (!cancelled) detectorRef.current = lm;
+        else lm.close();
+      } catch {
+        // skeleton overlay unavailable; non-critical
+      }
+    })();
+    return () => {
+      cancelled = true;
+      detectorRef.current?.close();
+      detectorRef.current = null;
+    };
+  }, []);
+
+  // Skeleton detection on pause/seeked-while-paused/loadeddata; clear on play
+  useEffect(() => {
+    const video = videoRef.current;
+    const skCanvas = skeletonCanvasRef.current;
+    if (!video || !skCanvas) return;
+
+    const detect = () => {
+      const det = detectorRef.current;
+      if (!det || !video.videoWidth) return;
+      try {
+        const result = det.detect(video);
+        if (result.landmarks.length > 0) {
+          drawSkeleton(skCanvas, result.landmarks[0], video.videoWidth, video.videoHeight, mirror);
+        } else {
+          const ctx = skCanvas.getContext("2d");
+          ctx?.clearRect(0, 0, skCanvas.width, skCanvas.height);
+        }
+      } catch {
+        // ignore individual frame failures
+      }
+    };
+
+    const clearSkeleton = () => {
+      const ctx = skCanvas.getContext("2d");
+      ctx?.clearRect(0, 0, skCanvas.width, skCanvas.height);
+    };
+
+    const onSeeked = () => { if (video.paused) detect(); };
+
+    video.addEventListener("pause", detect);
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("loadeddata", detect);
+    video.addEventListener("play", clearSkeleton);
+
+    return () => {
+      video.removeEventListener("pause", detect);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("loadeddata", detect);
+      video.removeEventListener("play", clearSkeleton);
+    };
+  }, [mirror]);
 
   // rAF loop: sync cursor from video playback and redraw when needed
   useEffect(() => {
@@ -303,16 +446,21 @@ export default function KinematicsReview({
         </div>
       </div>
 
-      {/* Video */}
+      {/* Video + skeleton overlay */}
       {hasVideo && videoUrl && (
-        <div className="shrink-0 bg-black overflow-hidden" style={{ flex: "5 5 0", minHeight: 0 }}>
+        <div className="shrink-0 bg-black overflow-hidden relative" style={{ flex: "5 5 0", minHeight: 0 }}>
           <video
             ref={videoRef}
             src={videoUrl}
             controls
             playsInline
-            className={`w-full h-full object-contain${facingMode === "user" ? " video-mirrored" : ""}`}
-            style={facingMode === "user" ? { transform: "scaleX(-1)" } : undefined}
+            className={`w-full h-full object-contain${mirror ? " video-mirrored" : ""}`}
+            style={mirror ? { transform: "scaleX(-1)" } : undefined}
+          />
+          <canvas
+            ref={skeletonCanvasRef}
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={mirror ? { transform: "scaleX(-1)" } : undefined}
           />
         </div>
       )}
