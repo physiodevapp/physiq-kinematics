@@ -456,14 +456,14 @@ export default function KinematicsReview({
           <div className="shrink-0 flex gap-3 px-4 pt-2">
             <button
               onClick={handleCancelSelection}
-              className="flex-1 py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
             >
               Cancelar selección
             </button>
             <button
               disabled={!selRange}
               onClick={handleInterpolate}
-              className="flex-1 py-2 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
+              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
               style={{ background: "#5dadec" }}
             >
               Interpolar tramo
@@ -488,7 +488,7 @@ export default function KinematicsReview({
             <div className="shrink-0 px-4 pt-2">
               <button
                 onClick={handleUndo}
-                className="w-full py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+                className="w-full py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
               >
                 Deshacer interpolación
               </button>
