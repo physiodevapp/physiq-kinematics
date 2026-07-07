@@ -242,6 +242,15 @@ export default function KinematicsReview({
     needsRepaintRef.current = true;
   }, [workingSeries]);
 
+  useEffect(() => {
+    const r = selRangeRef.current;
+    if (r && (r.end - r.start) < minRangeMs) {
+      selRangeRef.current = null;
+      setSelRange(null);
+      needsRepaintRef.current = true;
+    }
+  }, [minRangeMs]);
+
   const yMax = useMemo(() => {
     let mx = 0;
     for (const j of joints) {
@@ -469,8 +478,13 @@ export default function KinematicsReview({
               Interpolar tramo
             </button>
           </div>
-          <div className="shrink-0 flex items-center gap-3 px-4 pt-2">
-            <span className="font-mono text-xs text-white/40 whitespace-nowrap">Mín. selección</span>
+          <div className="shrink-0 px-4 pt-3">
+            <div className="flex justify-between mb-2">
+              <span className="font-mono text-xs text-white/40">Mín. selección</span>
+              <span className="font-mono text-xs text-white/60">
+                {minRangeMs === 0 ? "sin mín." : `${minRangeMs} ms`}
+              </span>
+            </div>
             <input
               type="range"
               min={0}
@@ -478,11 +492,8 @@ export default function KinematicsReview({
               step={100}
               value={minRangeMs}
               onChange={e => setMinRangeMs(Number(e.target.value))}
-              className="flex-1 h-1 accent-[#5dadec]"
+              className="w-full accent-[#5dadec]"
             />
-            <span className="font-mono text-xs text-white/40 whitespace-nowrap w-14 text-right">
-              {minRangeMs === 0 ? "sin mín." : `${minRangeMs} ms`}
-            </span>
           </div>
           {prevWorkingSeries && (
             <div className="shrink-0 px-4 pt-2">
