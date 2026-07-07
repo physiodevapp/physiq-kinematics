@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
+type WasmFileset = Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>;
 import { useSettings, PoseModel } from './Settings';
 
 export type DetectorType = PoseLandmarker | null;
@@ -23,6 +24,14 @@ const MODEL_URLS: Record<PoseModel, string> = {
 
 const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 
+// Singleton: WASM runtime is loaded once per browser session regardless of how
+// many times the provider mounts/unmounts (satellite hide/show cycles).
+let visionPromise: Promise<WasmFileset> | null = null;
+const getVision = (): Promise<WasmFileset> => {
+  if (!visionPromise) visionPromise = FilesetResolver.forVisionTasks(WASM_PATH);
+  return visionPromise;
+};
+
 export const PoseDetectorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [detector, setDetector] = useState<DetectorType>(null);
   const [detectorModel, setDetectorModel] = useState<PoseModel | null>(null);
@@ -33,11 +42,14 @@ export const PoseDetectorProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { poseModel } = settings.pose;
 
   const activeRef = useRef<PoseLandmarker | null>(null);
+  const initInProgressRef = useRef(false);
 
   useEffect(() => {
-    if (detectorModel === poseModel) return;
+    if (detectorModel === poseModel && isDetectorReady) return;
+    if (initInProgressRef.current) return;
 
     let cancelled = false;
+    initInProgressRef.current = true;
 
     const init = async () => {
       try {
@@ -45,7 +57,7 @@ export const PoseDetectorProvider: React.FC<{ children: React.ReactNode }> = ({ 
         activeRef.current?.close();
         activeRef.current = null;
 
-        const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
+        const vision = await getVision();
 
         const instance = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
@@ -69,6 +81,8 @@ export const PoseDetectorProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       } catch (error) {
         console.error('Error initializing MediaPipe detector:', error);
+      } finally {
+        initInProgressRef.current = false;
       }
     };
 
