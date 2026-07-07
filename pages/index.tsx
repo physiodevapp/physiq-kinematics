@@ -50,6 +50,11 @@ const VideoProcessor = dynamic(
   { ssr: false }
 );
 
+const VideoTrimmer = dynamic(
+  () => import("../components/VideoTrimmer").then((mod) => mod.default),
+  { ssr: false }
+);
+
 function getSupportedMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
   const types = [
@@ -111,6 +116,8 @@ export default function Home() {
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [pendingTrimFile, setPendingTrimFile] = useState<File | null>(null);
+  const [trimRange, setTrimRange] = useState<{ start: number; end: number } | null>(null);
   const [uploadIsMirrored, setUploadIsMirrored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -278,13 +285,25 @@ export default function Home() {
   const handleConfirmUpload = (isMirrored: boolean) => {
     if (!pendingUploadFile) return;
     setUploadIsMirrored(isMirrored);
-    setUploadFile(pendingUploadFile);
+    setPendingTrimFile(pendingUploadFile);
     setPendingUploadFile(null);
     setIsFrozen(true);
   };
 
   const handleCancelPendingUpload = () => {
     setPendingUploadFile(null);
+  };
+
+  const handleConfirmTrim = (start: number, end: number) => {
+    if (!pendingTrimFile) return;
+    setTrimRange({ start, end });
+    setUploadFile(pendingTrimFile);
+    setPendingTrimFile(null);
+  };
+
+  const handleCancelTrim = () => {
+    setPendingTrimFile(null);
+    setIsFrozen(false);
   };
 
   const handleUploadComplete = (data: {
@@ -294,6 +313,7 @@ export default function Home() {
     joints: CanvasKeypointName[];
   }) => {
     setUploadFile(null);
+    setTrimRange(null);
     setIsFrozen(false);
     if (!Object.keys(data.series).length) {
       setShowNoDataDialog(true);
@@ -312,6 +332,7 @@ export default function Home() {
 
   const handleUploadCancel = () => {
     setUploadFile(null);
+    setTrimRange(null);
     setIsFrozen(false);
   };
 
@@ -441,6 +462,8 @@ export default function Home() {
         setShowSavedToast(false);
         setShowNoDataDialog(false);
         setUploadFile(null);
+        setPendingTrimFile(null);
+        setTrimRange(null);
         if (isRecordingRef.current) {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -808,6 +831,15 @@ export default function Home() {
         </div>
       )}
 
+      {pendingTrimFile && (
+        <VideoTrimmer
+          file={pendingTrimFile}
+          isMirrored={uploadIsMirrored}
+          onConfirm={handleConfirmTrim}
+          onCancel={handleCancelTrim}
+        />
+      )}
+
       {uploadFile && (
         <VideoProcessor
           file={uploadFile}
@@ -816,6 +848,8 @@ export default function Home() {
           poseOrientation={poseOrientation}
           orthogonalReference={orthogonalReference}
           angularHistorySize={settings.pose.angularHistorySize}
+          startTime={trimRange?.start}
+          endTime={trimRange?.end}
           onComplete={handleUploadComplete}
           onCancel={handleUploadCancel}
         />
