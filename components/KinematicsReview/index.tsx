@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CameraIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { AdjustmentsHorizontalIcon, ArrowUturnLeftIcon, CameraIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
@@ -236,6 +236,7 @@ export default function KinematicsReview({
   const editAnchorRef = useRef<number | null>(null);
   const [prevWorkingSeries, setPrevWorkingSeries] = useState<KinematicsSeries | null>(null);
   const [minRangeMs, setMinRangeMs] = useState(500);
+  const [showSlider, setShowSlider] = useState(false);
 
   useEffect(() => {
     workingSeriesRef.current = workingSeries;
@@ -351,6 +352,7 @@ export default function KinematicsReview({
         selRangeRef.current = null;
         setSelRange(null);
         setPrevWorkingSeries(null);
+        setShowSlider(false);
         needsRepaintRef.current = true;
       }
       return !prev;
@@ -458,55 +460,69 @@ export default function KinematicsReview({
           }}
         />
 
-        {/* Edit bottom sheet overlay — slider + undo, floats above chart */}
-        {editMode && (
-          <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl px-4 pt-4 pb-3" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}>
-            <div className="flex justify-between mb-2">
-              <span className="font-mono text-xs text-white/40">Mín. selección</span>
-              <span className="font-mono text-xs text-white/60">
-                {minRangeMs === 0 ? "sin mín." : `${minRangeMs} ms`}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={2000}
-              step={100}
-              value={minRangeMs}
-              onChange={e => setMinRangeMs(Number(e.target.value))}
-              className="w-full accent-[#5dadec]"
-            />
-            {prevWorkingSeries && (
-              <button
-                onClick={handleUndo}
-                className="w-full mt-3 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-              >
-                Deshacer interpolación
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Action row — always same position; swaps buttons in edit mode */}
       <div className="shrink-0 flex gap-3 px-4 py-4">
         {editMode ? (
-          <>
-            <button
-              onClick={handleCancelSelection}
-              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-            >
-              Cancelar selección
-            </button>
-            <button
-              disabled={!selRange}
-              onClick={handleInterpolate}
-              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
-              style={{ background: "#5dadec" }}
-            >
-              Interpolar tramo
-            </button>
-          </>
+          showSlider ? (
+            <>
+              <div className="flex-1 flex flex-col justify-center gap-1.5">
+                <div className="flex justify-between">
+                  <span className="font-mono text-xs text-white/40">Mín. selección</span>
+                  <span className="font-mono text-xs text-white/60">
+                    {minRangeMs === 0 ? "sin mín." : `${minRangeMs} ms`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={2000}
+                  step={100}
+                  value={minRangeMs}
+                  onChange={e => setMinRangeMs(Number(e.target.value))}
+                  className="w-full accent-[#5dadec]"
+                />
+              </div>
+              <button
+                onClick={() => setShowSlider(false)}
+                className="shrink-0 px-3 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+              >
+                <AdjustmentsHorizontalIcon className="h-5 w-5" style={{ color: "#5dadec" }} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleCancelSelection}
+                className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+              >
+                Cancelar selección
+              </button>
+              <button
+                disabled={!selRange}
+                onClick={handleInterpolate}
+                className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
+                style={{ background: "#5dadec" }}
+              >
+                Interpolar tramo
+              </button>
+              {prevWorkingSeries && (
+                <button
+                  onClick={handleUndo}
+                  className="shrink-0 px-3 py-3 rounded-md text-white/60 border border-white/20 active:bg-white/5"
+                >
+                  <ArrowUturnLeftIcon className="h-5 w-5" />
+                </button>
+              )}
+              <button
+                onClick={() => setShowSlider(true)}
+                className="shrink-0 px-3 py-3 rounded-md text-white/60 border border-white/20 active:bg-white/5"
+              >
+                <AdjustmentsHorizontalIcon className="h-5 w-5" />
+              </button>
+            </>
+          )
         ) : (
           <>
             <button
