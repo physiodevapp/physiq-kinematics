@@ -11,6 +11,7 @@ interface IndexProps {
   handleModal: () => void;
   onSelectionChange: (selectedItems: string[]) => void;
   maxSelected?: number;
+  minSelected?: number;
   jointOptions: checkbox[];
   initialSelectedJoints?: CanvasKeypointName[];
 }
@@ -20,6 +21,7 @@ const Index = ({
   handleModal,
   onSelectionChange,
   maxSelected = 6,
+  minSelected = 0,
   jointOptions,
   initialSelectedJoints = [],
 }: IndexProps) => {
@@ -38,6 +40,7 @@ const Index = ({
   const selectedCount = checkboxStates.filter(Boolean).length;
 
   const handleCheckboxChange = (index: number, checked: boolean) => {
+    if (!checked && selectedCount <= minSelected) return;
     const newStates = [...checkboxStates];
     newStates[index] = checked;
     setCheckboxStates(newStates);
