@@ -124,6 +124,18 @@ export default function VideoProcessor({
   async function processVideo(video: HTMLVideoElement, worker: Worker) {
     setStatus("processing");
 
+    // Switch to IMAGE mode: detectForVideo requires a live playing stream and
+    // fails on a seeked/paused video element. IMAGE mode's detect() works on
+    // any static frame source. KinematicsLive is frozen (isFrozen=true) while
+    // VideoProcessor is active so switching modes on the shared detector is safe.
+    try {
+      await detector!.setOptions({ runningMode: 'IMAGE' });
+    } catch {
+      setStatus("error");
+      setErrorMsg("El detector de poses no pudo inicializarse. Vuelve a intentarlo.");
+      return;
+    }
+
     const LANDMARK_NAMES = [
       'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
       'right_eye_inner', 'right_eye', 'right_eye_outer',
@@ -159,7 +171,7 @@ export default function VideoProcessor({
       let keypoints: Keypoint[] = [];
 
       try {
-        const result = detector!.detectForVideo(video, currentTime * 1000 + 1);
+        const result = detector!.detect(video);
         if (result.landmarks.length > 0) {
           keypoints = result.landmarks[0]
             .map((lm, i) => ({
@@ -214,6 +226,9 @@ export default function VideoProcessor({
         setProgress(Math.min(currentTime / video.duration, 1));
       }
     }
+
+    // Restore VIDEO mode for the live camera before resolving
+    try { await detector!.setOptions({ runningMode: 'VIDEO' }); } catch { /* best-effort */ }
 
     if (cancelledRef.current) return;
 
