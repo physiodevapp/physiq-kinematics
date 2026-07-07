@@ -90,8 +90,6 @@ export default function VideoProcessor({
     "waiting" | "processing" | "done" | "error"
   >("waiting");
   const [errorMsg, setErrorMsg] = useState("");
-  // Signals that loadedmetadata fired and the video is ready to process.
-  // Decoupled from detector readiness to fix a race on first cold load.
   const [videoReady, setVideoReady] = useState(false);
 
   const cancelledRef = useRef(false);
@@ -110,7 +108,6 @@ export default function VideoProcessor({
     video.playsInline = true;
     video.muted = true;
     video.preload = "auto";
-    // Must be in the DOM for reliable loadedmetadata/seeked events in mobile WebViews
     video.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none";
     document.body.appendChild(video);
     videoRef.current = video;
@@ -157,31 +154,29 @@ export default function VideoProcessor({
     };
   }, []);
 
-  // Start processing once both the video metadata and the detector are ready.
-  // This decouples the two async paths so a cold-load (cache cleared) works
-  // even when loadedmetadata fires before the detector finishes downloading.
   useEffect(() => {
     if (!videoReady || !isDetectorReady || !detector || status !== 'waiting') return;
     if (cancelledRef.current) return;
     processVideo(videoRef.current!, workerRef.current!);
-  // processVideo is intentionally omitted: the effect re-runs when detector/
-  // videoReady change, capturing the current closure which already has the
-  // fresh detector value.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoReady, isDetectorReady, detector, status]);
 
   async function processVideo(video: HTMLVideoElement, worker: Worker) {
     setStatus("processing");
 
-    // Switch to IMAGE mode: detectForVideo requires a live playing stream and
-    // fails on a seeked/paused video element. IMAGE mode's detect() works on
-    // any static frame source. KinematicsLive is frozen (isFrozen=true) while
-    // VideoProcessor is active so switching modes on the shared detector is safe.
     try {
       await detector!.setOptions({ runningMode: 'IMAGE' });
     } catch {
       setStatus("error");
       setErrorMsg("El detector de poses no pudo inicializarse. Vuelve a intentarlo.");
+      return;
+    }
+
+    // Runtime check: requestVideoFrameCallback is required for frame-accurate processing
+    if (!(video as any).requestVideoFrameCallback) {
+      setStatus("error");
+      setErrorMsg("Tu navegador no es compatible con esta función. Actualízalo e inténtalo de nuevo.");
+      try { await detector!.setOptions({ runningMode: 'VIDEO' }); } catch { /* best-effort */ }
       return;
     }
 
@@ -203,85 +198,124 @@ export default function VideoProcessor({
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
-    const frameInterval = 1 / PROCESS_FPS;
     const series: KinematicsSeries = {};
     jointDataRef.current = {};
-
-    let currentTime = effectiveStart;
     let frameCount = 0;
     let detectionErrors = 0;
 
-    while (currentTime <= effectiveEnd && !cancelledRef.current) {
-      video.currentTime = currentTime;
-      await new Promise<void>((resolve) => {
-        const onSeeked = () => { clearTimeout(timer); resolve(); };
-        const timer = setTimeout(() => {
-          video.removeEventListener("seeked", onSeeked);
-          resolve();
-        }, 2500);
-        video.addEventListener("seeked", onSeeked, { once: true });
-      });
+    // Single seek to the start of the trim range (replaces per-frame seeks)
+    video.currentTime = effectiveStart;
+    await new Promise<void>((resolve) => {
+      const onSeeked = () => { clearTimeout(timer); resolve(); };
+      const timer = setTimeout(() => {
+        video.removeEventListener("seeked", onSeeked);
+        resolve();
+      }, 3000);
+      video.addEventListener("seeked", onSeeked, { once: true });
+    });
 
-      if (cancelledRef.current) break;
-
-      let keypoints: Keypoint[] = [];
-
-      try {
-        const result = detector!.detect(video);
-        if (result.landmarks.length > 0) {
-          keypoints = result.landmarks[0]
-            .map((lm, i) => ({
-              x: lm.x * vw,
-              y: lm.y * vh,
-              z: lm.z,
-              score: lm.visibility,
-              name: LANDMARK_NAMES[i],
-            }))
-            .filter(kp => (kp.score ?? 0) > minPoseScore && !excludedKeypoints.includes(kp.name!));
-        }
-      } catch {
-        detectionErrors++;
-      }
-
-      if (keypoints.length > 0 && selectedJoints.length > 0 && !cancelledRef.current) {
-        const rawOrientation =
-          poseOrientation === "auto" || poseOrientation === null
-            ? inferPoseOrientation(keypoints)
-            : poseOrientation;
-        const effectiveOrientation = rawOrientation
-          ? adjustOrientationForMirror(rawOrientation, isMirrored)
-          : null;
-
-        const updatedJointData = await updateMultipleJoints({
-          keypoints,
-          selectedJoints,
-          jointDataRef,
-          jointConfigMap,
-          jointWorker: worker,
-          orthogonalReference,
-          formatJointName,
-          jointAngleHistorySize: angularHistorySize,
-          poseOrientation: effectiveOrientation,
-        });
-
-        const elapsedMs = (currentTime - effectiveStart) * 1000;
-        Object.entries(updatedJointData).forEach(([joint, jd]) => {
-          if (!jd) return;
-          if (!series[joint]) {
-            series[joint] = { t: [], a: [] };
-          }
-          series[joint].t.push(elapsedMs);
-          series[joint].a.push(Math.round(jd.angle));
-        });
-      }
-
-      currentTime += frameInterval;
-      frameCount++;
-
-      if (frameCount % 5 === 0) {
-        setProgress(Math.min((currentTime - effectiveStart) / (effectiveEnd - effectiveStart), 1));
-      }
+    if (cancelledRef.current) {
+      try { await detector!.setOptions({ runningMode: 'VIDEO' }); } catch { /* best-effort */ }
+      return;
     }
+
+    // RVFC-driven frame loop: plays the video at 4× and samples at PROCESS_FPS (video time).
+    // This eliminates the per-frame seek hangs that caused failures on mobile decoders.
+    await new Promise<void>((resolve) => {
+      let lastSampledTime = effectiveStart - 1 / PROCESS_FPS; // force first frame to be sampled
+      let done = false;
+
+      const finish = () => {
+        if (done) return;
+        done = true;
+        video.pause();
+        video.removeEventListener("ended", finish);
+        resolve();
+      };
+
+      video.addEventListener("ended", finish, { once: true });
+
+      const onFrame = async (
+        _now: DOMHighResTimeStamp,
+        meta: { mediaTime: number }
+      ) => {
+        if (cancelledRef.current || meta.mediaTime >= effectiveEnd) {
+          finish();
+          return;
+        }
+
+        if (meta.mediaTime - lastSampledTime >= 1 / PROCESS_FPS - 0.01) {
+          lastSampledTime = meta.mediaTime;
+          frameCount++;
+
+          let keypoints: Keypoint[] = [];
+          try {
+            const result = detector!.detect(video);
+            if (result.landmarks.length > 0) {
+              keypoints = result.landmarks[0]
+                .map((lm, i) => ({
+                  x: lm.x * vw,
+                  y: lm.y * vh,
+                  z: lm.z,
+                  score: lm.visibility,
+                  name: LANDMARK_NAMES[i],
+                }))
+                .filter(kp => (kp.score ?? 0) > minPoseScore && !excludedKeypoints.includes(kp.name!));
+            }
+          } catch {
+            detectionErrors++;
+          }
+
+          if (keypoints.length > 0 && selectedJoints.length > 0 && !cancelledRef.current) {
+            const rawOrientation =
+              poseOrientation === "auto" || poseOrientation === null
+                ? inferPoseOrientation(keypoints)
+                : poseOrientation;
+            const effectiveOrientation = rawOrientation
+              ? adjustOrientationForMirror(rawOrientation, isMirrored)
+              : null;
+
+            const updatedJointData = await updateMultipleJoints({
+              keypoints,
+              selectedJoints,
+              jointDataRef,
+              jointConfigMap,
+              jointWorker: worker,
+              orthogonalReference,
+              formatJointName,
+              jointAngleHistorySize: angularHistorySize,
+              poseOrientation: effectiveOrientation,
+            });
+
+            if (!cancelledRef.current) {
+              const elapsedMs = (meta.mediaTime - effectiveStart) * 1000;
+              Object.entries(updatedJointData).forEach(([joint, jd]) => {
+                if (!jd) return;
+                if (!series[joint]) series[joint] = { t: [], a: [] };
+                series[joint].t.push(elapsedMs);
+                series[joint].a.push(Math.round(jd.angle));
+              });
+            }
+          }
+
+          if (frameCount % 5 === 0) {
+            setProgress(Math.min(
+              (meta.mediaTime - effectiveStart) / (effectiveEnd - effectiveStart), 1
+            ));
+          }
+        }
+
+        if (!done && !cancelledRef.current && meta.mediaTime < effectiveEnd) {
+          (video as any).requestVideoFrameCallback(onFrame);
+        } else {
+          finish();
+        }
+      };
+
+      (video as any).requestVideoFrameCallback(onFrame);
+      video.playbackRate = 4;
+      video.play().catch(finish);
+    });
 
     // Restore VIDEO mode for the live camera before resolving
     try { await detector!.setOptions({ runningMode: 'VIDEO' }); } catch { /* best-effort */ }

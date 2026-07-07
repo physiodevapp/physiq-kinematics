@@ -233,9 +233,9 @@ export default function Home() {
     });
   };
 
-  const handleAcceptAndRecordAnother = () => {
+  const handleAcceptAndRecordAnother = (correctedSeries: KinematicsSeries) => {
     if (!reviewData) return;
-    setRecordings((prev) => [...prev, reviewData]);
+    setRecordings((prev) => [...prev, { ...reviewData, series: correctedSeries }]);
     setReviewData(null);
     if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
     setShowSavedToast(true);
@@ -244,6 +244,32 @@ export default function Home() {
 
   const handleDeleteRecording = (id: number) => {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handleSendFromReview = (correctedSeries: KinematicsSeries) => {
+    if (!reviewData) return;
+    const reviewEntry = { ...reviewData, series: correctedSeries };
+    const all = [...recordings, reviewEntry];
+    if (!all.length) return;
+    const ch = new BroadcastChannel("physiq-session");
+    ch.postMessage({
+      type: "SESSION_KINEMATICS",
+      kinematics: all.map(({ startedAt, duration, joints, series }) => ({
+        startedAt,
+        duration,
+        joints,
+        series,
+      })),
+    });
+    ch.close();
+    setRecordings([]);
+    setReviewData(null);
+    setShowRecordingsList(false);
+    if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
+    setShowSavedToast(false);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setShowSentToast(true);
+    toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
   };
 
   const handleSendToReport = () => {
@@ -779,7 +805,7 @@ export default function Home() {
           joints={reviewData.joints}
           facingMode={reviewData.facingMode}
           recordingNumber={recordings.length + 1}
-          onSend={handleSendToReport}
+          onSend={handleSendFromReview}
           onDiscard={() => setReviewData(null)}
           onAcceptAndRecordAnother={handleAcceptAndRecordAnother}
         />

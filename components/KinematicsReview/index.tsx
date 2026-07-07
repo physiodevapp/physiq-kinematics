@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CameraIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
@@ -13,7 +13,6 @@ const WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/
 const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 const MIN_SCORE = 0.3;
 
-// Upper-body skeleton connections (landmark indices)
 const POSE_CONNECTIONS: [number, number][] = [
   [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
   [11, 23], [12, 24], [23, 24],
@@ -41,6 +40,29 @@ function angleAt(entry: KinematicsSeriesEntry, ms: number): number | null {
   return a[0];
 }
 
+function interpolateRange(
+  series: KinematicsSeries,
+  startMs: number,
+  endMs: number,
+): KinematicsSeries {
+  const result: KinematicsSeries = {};
+  for (const joint of Object.keys(series)) {
+    const entry = series[joint];
+    const { t, a } = entry;
+    const newA = [...a];
+    const vStart = angleAt(entry, startMs) ?? a[0];
+    const vEnd = angleAt(entry, endMs) ?? a[a.length - 1];
+    const span = endMs - startMs;
+    for (let i = 0; i < t.length; i++) {
+      if (t[i] > startMs && t[i] < endMs && span > 0) {
+        newA[i] = Math.round(vStart + ((t[i] - startMs) / span) * (vEnd - vStart));
+      }
+    }
+    result[joint] = { t, a: newA };
+  }
+  return result;
+}
+
 function paintChart(
   ctx: CanvasRenderingContext2D,
   W: number, H: number, dpr: number,
@@ -49,6 +71,7 @@ function paintChart(
   dur: number,
   curMs: number,
   yMax: number,
+  selRange?: { start: number; end: number } | null,
 ) {
   if (dur === 0 || W === 0 || H === 0) return;
 
@@ -119,6 +142,26 @@ function paintChart(
     ctx.stroke();
   }
 
+  // Selection range overlay
+  if (selRange) {
+    const sx = tx(Math.max(selRange.start, 0));
+    const ex = tx(Math.min(selRange.end, dur));
+    ctx.fillStyle = "rgba(93,173,236,0.15)";
+    ctx.fillRect(sx, PAD.top, ex - sx, plotH);
+    ctx.strokeStyle = "#5dadec";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(sx, PAD.top);
+    ctx.lineTo(sx, PAD.top + plotH);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ex, PAD.top);
+    ctx.lineTo(ex, PAD.top + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // Cursor vertical line
   const cx = tx(Math.min(Math.max(curMs, 0), dur));
   ctx.strokeStyle = "rgba(255,255,255,0.85)";
@@ -151,7 +194,6 @@ function paintChart(
     });
   }
 
-  // Collision-avoid label stacking
   cursorLabels.sort((a, b) => a.y - b.y);
   for (let i = 1; i < cursorLabels.length; i++) {
     if (cursorLabels[i].y < cursorLabels[i - 1].y + LINE_H)
@@ -193,7 +235,6 @@ function drawSkeleton(
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, cW, cH);
 
-  // Compute letterbox rect
   const scale = Math.min(cW / videoW, cH / videoH);
   const rW = videoW * scale;
   const rH = videoH * scale;
@@ -206,7 +247,6 @@ function drawSkeleton(
   };
   const toY = (ny: number) => offY + ny * rH;
 
-  // Draw connections
   ctx.strokeStyle = "rgba(255,255,255,0.6)";
   ctx.lineWidth = 1.5;
   for (const [a, b] of POSE_CONNECTIONS) {
@@ -220,7 +260,6 @@ function drawSkeleton(
     ctx.stroke();
   }
 
-  // Draw keypoints
   for (const lm of landmarks) {
     if ((lm.visibility ?? 1) < MIN_SCORE) continue;
     ctx.beginPath();
@@ -239,9 +278,9 @@ interface Props {
   joints: CanvasKeypointName[];
   facingMode: string;
   recordingNumber: number;
-  onSend: () => void;
+  onSend: (series: KinematicsSeries) => void;
   onDiscard: () => void;
-  onAcceptAndRecordAnother: () => void;
+  onAcceptAndRecordAnother: (series: KinematicsSeries) => void;
 }
 
 export default function KinematicsReview({
@@ -261,6 +300,20 @@ export default function KinematicsReview({
   const curMsRef = useRef(0);
   const draggingRef = useRef(false);
   const detectorRef = useRef<PoseLandmarker | null>(null);
+  const needsRepaintRef = useRef(false);
+
+  const [isDetectorReady, setIsDetectorReady] = useState(false);
+  const [workingSeries, setWorkingSeries] = useState<KinematicsSeries>(() => series);
+  const workingSeriesRef = useRef<KinematicsSeries>(series);
+  const [editMode, setEditMode] = useState(false);
+  const [selRange, setSelRange] = useState<{ start: number; end: number } | null>(null);
+  const selRangeRef = useRef<{ start: number; end: number } | null>(null);
+  const editAnchorRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    workingSeriesRef.current = workingSeries;
+    needsRepaintRef.current = true;
+  }, [workingSeries]);
 
   const yMax = useMemo(() => {
     let mx = 0;
@@ -282,6 +335,25 @@ export default function KinematicsReview({
     return () => URL.revokeObjectURL(url);
   }, [videoBlob, hasVideo]);
 
+  // Stable detect function — reads refs at call time, no stale closure risk
+  const detectCurrentFrame = useCallback(() => {
+    const video = videoRef.current;
+    const skCanvas = skeletonCanvasRef.current;
+    const det = detectorRef.current;
+    if (!det || !video || !video.videoWidth || !skCanvas) return;
+    try {
+      const result = det.detect(video);
+      if (result.landmarks.length > 0) {
+        drawSkeleton(skCanvas, result.landmarks[0], video.videoWidth, video.videoHeight, mirror);
+      } else {
+        const ctx = skCanvas.getContext("2d");
+        ctx?.clearRect(0, 0, skCanvas.width, skCanvas.height);
+      }
+    } catch {
+      // ignore individual frame failures
+    }
+  }, [mirror]);
+
   // Build local IMAGE/CPU detector for skeleton overlay
   useEffect(() => {
     let cancelled = false;
@@ -296,8 +368,12 @@ export default function KinematicsReview({
           minPosePresenceConfidence: MIN_SCORE,
           minTrackingConfidence: MIN_SCORE,
         });
-        if (!cancelled) detectorRef.current = lm;
-        else lm.close();
+        if (!cancelled) {
+          detectorRef.current = lm;
+          setIsDetectorReady(true);
+        } else {
+          lm.close();
+        }
       } catch {
         // skeleton overlay unavailable; non-critical
       }
@@ -306,8 +382,19 @@ export default function KinematicsReview({
       cancelled = true;
       detectorRef.current?.close();
       detectorRef.current = null;
+      setIsDetectorReady(false);
     };
   }, []);
+
+  // Re-detect when detector becomes ready and video is already loaded/paused
+  useEffect(() => {
+    if (!isDetectorReady) return;
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    if (video.paused || video.ended) {
+      detectCurrentFrame();
+    }
+  }, [isDetectorReady, detectCurrentFrame]);
 
   // Skeleton detection on pause/seeked-while-paused/loadeddata; clear on play
   useEffect(() => {
@@ -315,43 +402,27 @@ export default function KinematicsReview({
     const skCanvas = skeletonCanvasRef.current;
     if (!video || !skCanvas) return;
 
-    const detect = () => {
-      const det = detectorRef.current;
-      if (!det || !video.videoWidth) return;
-      try {
-        const result = det.detect(video);
-        if (result.landmarks.length > 0) {
-          drawSkeleton(skCanvas, result.landmarks[0], video.videoWidth, video.videoHeight, mirror);
-        } else {
-          const ctx = skCanvas.getContext("2d");
-          ctx?.clearRect(0, 0, skCanvas.width, skCanvas.height);
-        }
-      } catch {
-        // ignore individual frame failures
-      }
-    };
-
     const clearSkeleton = () => {
       const ctx = skCanvas.getContext("2d");
       ctx?.clearRect(0, 0, skCanvas.width, skCanvas.height);
     };
 
-    const onSeeked = () => { if (video.paused) detect(); };
+    const onSeeked = () => { if (video.paused) detectCurrentFrame(); };
 
-    video.addEventListener("pause", detect);
+    video.addEventListener("pause", detectCurrentFrame);
     video.addEventListener("seeked", onSeeked);
-    video.addEventListener("loadeddata", detect);
+    video.addEventListener("loadeddata", detectCurrentFrame);
     video.addEventListener("play", clearSkeleton);
 
     return () => {
-      video.removeEventListener("pause", detect);
+      video.removeEventListener("pause", detectCurrentFrame);
       video.removeEventListener("seeked", onSeeked);
-      video.removeEventListener("loadeddata", detect);
+      video.removeEventListener("loadeddata", detectCurrentFrame);
       video.removeEventListener("play", clearSkeleton);
     };
-  }, [mirror]);
+  }, [detectCurrentFrame]);
 
-  // rAF loop: sync cursor from video playback and redraw when needed
+  // rAF loop: sync cursor from video playback and redraw chart when needed
   useEffect(() => {
     let rafId: number;
     let lastCurMs = -1;
@@ -360,7 +431,7 @@ export default function KinematicsReview({
     const tick = () => {
       rafId = requestAnimationFrame(tick);
 
-      if (!draggingRef.current && videoRef.current) {
+      if (!draggingRef.current && !editMode && videoRef.current) {
         const t = videoRef.current.currentTime * 1000;
         if (Math.abs(t - curMsRef.current) > 30) curMsRef.current = t;
       }
@@ -377,37 +448,77 @@ export default function KinematicsReview({
       }
 
       if (
+        needsRepaintRef.current ||
         Math.abs(curMsRef.current - lastCurMs) > 20 ||
         W !== lastW ||
         H !== lastH
       ) {
         const ctx = cv.getContext("2d");
-        if (ctx) paintChart(ctx, W, H, dpr, joints, series, duration, curMsRef.current, yMax);
+        if (ctx) {
+          paintChart(
+            ctx, W, H, dpr, joints,
+            workingSeriesRef.current,
+            duration, curMsRef.current, yMax,
+            selRangeRef.current,
+          );
+        }
         lastCurMs = curMsRef.current;
         lastW = W;
         lastH = H;
+        needsRepaintRef.current = false;
       }
     };
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [joints, series, duration, yMax]);
+  // editMode is a dep so the cursor-sync branch toggles correctly when entering/exiting edit
+  }, [joints, duration, yMax, editMode]);
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
   const handleGoHome = () => {
     window.parent.postMessage({ type: "PHYSIQ_GO_HOME" }, "*");
   };
 
-  const scrub = (clientX: number) => {
+  const chartTimeFromClientX = (clientX: number): number => {
     const cv = canvasRef.current;
-    if (!cv || duration === 0) return;
+    if (!cv || duration === 0) return 0;
     const rect = cv.getBoundingClientRect();
     const plotW = rect.width - PAD.left - PAD.right;
-    const frac = Math.min(Math.max((clientX - rect.left - PAD.left) / plotW, 0), 1);
-    curMsRef.current = frac * duration;
-    if (videoRef.current) {
-      videoRef.current.currentTime = curMsRef.current / 1000;
-    }
+    return Math.min(Math.max((clientX - rect.left - PAD.left) / plotW, 0), 1) * duration;
+  };
+
+  const scrub = (clientX: number) => {
+    const t = chartTimeFromClientX(clientX);
+    curMsRef.current = t;
+    if (videoRef.current) videoRef.current.currentTime = t / 1000;
+  };
+
+  const handleInterpolate = () => {
+    const r = selRangeRef.current;
+    if (!r) return;
+    const updated = interpolateRange(workingSeriesRef.current, r.start, r.end);
+    workingSeriesRef.current = updated;
+    setWorkingSeries(updated);
+    selRangeRef.current = null;
+    setSelRange(null);
+    needsRepaintRef.current = true;
+  };
+
+  const handleCancelSelection = () => {
+    selRangeRef.current = null;
+    setSelRange(null);
+    needsRepaintRef.current = true;
+  };
+
+  const toggleEditMode = () => {
+    setEditMode(prev => {
+      if (prev) {
+        selRangeRef.current = null;
+        setSelRange(null);
+        needsRepaintRef.current = true;
+      }
+      return !prev;
+    });
   };
 
   return (
@@ -436,13 +547,23 @@ export default function KinematicsReview({
         </div>
         <div className="flex items-center justify-between px-4 pb-2">
           <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
-          <button
-            onClick={onAcceptAndRecordAnother}
-            className="flex items-center gap-1 text-xs text-white/70 active:opacity-70"
-          >
-            <CameraIcon className="h-4 w-4" />
-            Cámara
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={toggleEditMode}
+              className="flex items-center gap-1 text-xs active:opacity-70 transition-colors"
+              style={editMode ? { color: "#5dadec" } : { color: "rgba(255,255,255,0.7)" }}
+            >
+              <PencilSquareIcon className="h-4 w-4" />
+              Editar
+            </button>
+            <button
+              onClick={() => onAcceptAndRecordAnother(workingSeries)}
+              className="flex items-center gap-1 text-xs text-white/70 active:opacity-70"
+            >
+              <CameraIcon className="h-4 w-4" />
+              Cámara
+            </button>
+          </div>
         </div>
       </div>
 
@@ -473,19 +594,73 @@ export default function KinematicsReview({
         <canvas
           ref={canvasRef}
           className="w-full h-full touch-none"
+          style={editMode ? { cursor: "crosshair" } : undefined}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
-            draggingRef.current = true;
-            scrub(e.clientX);
+            if (editMode) {
+              const t = chartTimeFromClientX(e.clientX);
+              editAnchorRef.current = t;
+              selRangeRef.current = null;
+              setSelRange(null);
+              needsRepaintRef.current = true;
+            } else {
+              draggingRef.current = true;
+              scrub(e.clientX);
+            }
           }}
           onPointerMove={(e) => {
-            if (!draggingRef.current) return;
-            scrub(e.clientX);
+            if (editMode) {
+              if (editAnchorRef.current === null) return;
+              const t = chartTimeFromClientX(e.clientX);
+              const anchor = editAnchorRef.current;
+              const r = { start: Math.min(anchor, t), end: Math.max(anchor, t) };
+              selRangeRef.current = r;
+              setSelRange(r);
+              needsRepaintRef.current = true;
+            } else {
+              if (!draggingRef.current) return;
+              scrub(e.clientX);
+            }
           }}
-          onPointerUp={() => { draggingRef.current = false; }}
-          onPointerCancel={() => { draggingRef.current = false; }}
+          onPointerUp={() => {
+            if (editMode) {
+              const r = selRangeRef.current;
+              if (r && (r.end - r.start) < 500) {
+                selRangeRef.current = null;
+                setSelRange(null);
+                needsRepaintRef.current = true;
+              }
+              editAnchorRef.current = null;
+            } else {
+              draggingRef.current = false;
+            }
+          }}
+          onPointerCancel={() => {
+            editAnchorRef.current = null;
+            draggingRef.current = false;
+          }}
         />
       </div>
+
+      {/* Edit action bar */}
+      {editMode && (
+        <div className="shrink-0 flex gap-3 px-4 pt-2">
+          <button
+            onClick={handleCancelSelection}
+            className="flex-1 py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+          >
+            Cancelar selección
+          </button>
+          <button
+            disabled={!selRange}
+            onClick={handleInterpolate}
+            className="flex-1 py-2 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
+            style={{ background: "#5dadec" }}
+          >
+            Interpolar tramo
+          </button>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="shrink-0 flex gap-3 px-4 py-4">
@@ -496,7 +671,7 @@ export default function KinematicsReview({
           Descartar
         </button>
         <button
-          onClick={onSend}
+          onClick={() => onSend(workingSeries)}
           className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
           style={{ background: "#5dadec" }}
         >
