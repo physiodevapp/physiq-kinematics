@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AdjustmentsHorizontalIcon, ArrowUturnLeftIcon, CameraIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { AdjustmentsHorizontalIcon, ArrowUturnLeftIcon, CameraIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
@@ -379,9 +379,6 @@ export default function KinematicsReview({
             <span className="opacity-50 font-normal">—</span>
             <span style={{ color: "#5dadec" }}>Kinematics</span>
           </h2>
-          <button onClick={onDiscard} className="p-1 -mr-1">
-            <XMarkIcon className="h-5 w-5 text-white/50" />
-          </button>
         </div>
         <div className="flex items-center justify-between px-4 pb-2">
           <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
