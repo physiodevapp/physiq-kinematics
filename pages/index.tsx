@@ -613,6 +613,7 @@ export default function Home() {
         handleModal={() => setIsPoseModalOpen((prev) => !prev)}
         jointOptions={jointOptions}
         maxSelected={6}
+        minSelected={isRecording ? 1 : 0}
         initialSelectedJoints={selectedJoints}
         onSelectionChange={handleJointSelection}
       />
