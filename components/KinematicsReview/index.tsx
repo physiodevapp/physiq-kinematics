@@ -234,6 +234,7 @@ export default function KinematicsReview({
   const [selRange, setSelRange] = useState<{ start: number; end: number } | null>(null);
   const selRangeRef = useRef<{ start: number; end: number } | null>(null);
   const editAnchorRef = useRef<number | null>(null);
+  const [prevWorkingSeries, setPrevWorkingSeries] = useState<KinematicsSeries | null>(null);
 
   useEffect(() => {
     workingSeriesRef.current = workingSeries;
@@ -311,11 +312,20 @@ export default function KinematicsReview({
   const handleInterpolate = () => {
     const r = selRangeRef.current;
     if (!r) return;
+    setPrevWorkingSeries(workingSeriesRef.current);
     const updated = interpolateRange(workingSeriesRef.current, r.start, r.end);
     workingSeriesRef.current = updated;
     setWorkingSeries(updated);
     selRangeRef.current = null;
     setSelRange(null);
+    needsRepaintRef.current = true;
+  };
+
+  const handleUndo = () => {
+    if (!prevWorkingSeries) return;
+    workingSeriesRef.current = prevWorkingSeries;
+    setWorkingSeries(prevWorkingSeries);
+    setPrevWorkingSeries(null);
     needsRepaintRef.current = true;
   };
 
@@ -330,6 +340,7 @@ export default function KinematicsReview({
       if (prev) {
         selRangeRef.current = null;
         setSelRange(null);
+        setPrevWorkingSeries(null);
         needsRepaintRef.current = true;
       }
       return !prev;
@@ -440,22 +451,34 @@ export default function KinematicsReview({
 
       {/* Edit action bar */}
       {editMode && (
-        <div className="shrink-0 flex gap-3 px-4 pt-2">
-          <button
-            onClick={handleCancelSelection}
-            className="flex-1 py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-          >
-            Cancelar selección
-          </button>
-          <button
-            disabled={!selRange}
-            onClick={handleInterpolate}
-            className="flex-1 py-2 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
-            style={{ background: "#5dadec" }}
-          >
-            Interpolar tramo
-          </button>
-        </div>
+        <>
+          <div className="shrink-0 flex gap-3 px-4 pt-2">
+            <button
+              onClick={handleCancelSelection}
+              className="flex-1 py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+            >
+              Cancelar selección
+            </button>
+            <button
+              disabled={!selRange}
+              onClick={handleInterpolate}
+              className="flex-1 py-2 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
+              style={{ background: "#5dadec" }}
+            >
+              Interpolar tramo
+            </button>
+          </div>
+          {prevWorkingSeries && (
+            <div className="shrink-0 px-4 pt-2">
+              <button
+                onClick={handleUndo}
+                className="w-full py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+              >
+                Deshacer interpolación
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Action buttons */}
