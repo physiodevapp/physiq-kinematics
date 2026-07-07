@@ -17,7 +17,6 @@ import {
   Cog6ToothIcon,
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
-  ArrowUpTrayIcon,
   Bars2Icon,
   FilmIcon,
   PauseIcon,
@@ -44,28 +43,6 @@ const KinematicsRecordingsList = dynamic(
   () => import("../components/KinematicsRecordingsList").then((mod) => mod.default),
   { ssr: false }
 );
-
-const VideoProcessor = dynamic(
-  () => import("../components/VideoProcessor").then((mod) => mod.default),
-  { ssr: false }
-);
-
-const VideoTrimmer = dynamic(
-  () => import("../components/VideoTrimmer").then((mod) => mod.default),
-  { ssr: false }
-);
-
-function getSupportedMimeType(): string {
-  if (typeof MediaRecorder === "undefined") return "";
-  const types = [
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-    "video/mp4;codecs=avc1",
-    "video/mp4",
-  ];
-  return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
-}
 
 export default function Home() {
   const { basePath } = useRouter();
@@ -110,25 +87,12 @@ export default function Home() {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const streamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const videoChunksRef = useRef<Blob[]>([]);
-
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
-  const [pendingTrimFile, setPendingTrimFile] = useState<File | null>(null);
-  const [trimRange, setTrimRange] = useState<{ start: number; end: number } | null>(null);
-  const [uploadIsMirrored, setUploadIsMirrored] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   type ReviewData = {
     id: number;
     startedAt: number;
-    videoBlob: Blob;
     series: KinematicsSeries;
     duration: number;
     joints: CanvasKeypointName[];
-    facingMode: string;
   };
   const [reviewData, setReviewData] = useState<ReviewData | null>(null);
   const [recordings, setRecordings] = useState<ReviewData[]>([]);
@@ -167,43 +131,9 @@ export default function Home() {
     recordingTimerRef.current = setInterval(() => {
       setRecordingDuration(Math.floor((Date.now() - recordingStartedAtRef.current) / 1000));
     }, 1000);
-
-    if (streamRef.current) {
-      videoChunksRef.current = [];
-      try {
-        const mimeType = getSupportedMimeType();
-        const mr = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : {});
-        mr.ondataavailable = (e) => {
-          if (e.data.size > 0) videoChunksRef.current.push(e.data);
-        };
-        mediaRecorderRef.current = mr;
-        mr.start(200);
-      } catch {
-        // MediaRecorder unavailable — review will show chart only
-      }
-    }
   };
 
-  const stopMediaRecorder = (): Promise<Blob | null> =>
-    new Promise((resolve) => {
-      const mr = mediaRecorderRef.current;
-      if (!mr || mr.state === "inactive") {
-        resolve(null);
-        return;
-      }
-      mr.onstop = () => {
-        const chunks = videoChunksRef.current;
-        const blob = chunks.length > 0
-          ? new Blob(chunks, { type: mr.mimeType || "video/webm" })
-          : null;
-        videoChunksRef.current = [];
-        mediaRecorderRef.current = null;
-        resolve(blob);
-      };
-      mr.stop();
-    });
-
-  const handleStopRecording = async () => {
+  const handleStopRecording = () => {
     isRecordingRef.current = false;
     setIsRecording(false);
     if (recordingTimerRef.current) {
@@ -216,20 +146,16 @@ export default function Home() {
     kinematicsSeriesRef.current = {};
 
     if (!Object.keys(series).length) {
-      await stopMediaRecorder();
       setShowNoDataDialog(true);
       return;
     }
 
-    const videoBlob = await stopMediaRecorder();
     setReviewData({
       id: startedAt,
       startedAt,
-      videoBlob: videoBlob ?? new Blob(),
       series,
       duration,
       joints: [...selectedJoints],
-      facingMode: videoConstraints.facingMode ?? "user",
     });
   };
 
@@ -294,72 +220,6 @@ export default function Home() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setShowSentToast(true);
     toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
-  };
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPendingUploadFile(file);
-    }
-    e.target.value = "";
-  };
-
-  const handleConfirmUpload = (isMirrored: boolean) => {
-    if (!pendingUploadFile) return;
-    setUploadIsMirrored(isMirrored);
-    setPendingTrimFile(pendingUploadFile);
-    setPendingUploadFile(null);
-    setIsFrozen(true);
-  };
-
-  const handleCancelPendingUpload = () => {
-    setPendingUploadFile(null);
-  };
-
-  const handleConfirmTrim = (start: number, end: number) => {
-    if (!pendingTrimFile) return;
-    setTrimRange({ start, end });
-    setUploadFile(pendingTrimFile);
-    setPendingTrimFile(null);
-  };
-
-  const handleCancelTrim = () => {
-    setPendingTrimFile(null);
-    setIsFrozen(false);
-  };
-
-  const handleUploadComplete = (data: {
-    videoBlob: Blob;
-    series: KinematicsSeries;
-    duration: number;
-    joints: CanvasKeypointName[];
-  }) => {
-    setUploadFile(null);
-    setTrimRange(null);
-    setIsFrozen(false);
-    if (!Object.keys(data.series).length) {
-      setShowNoDataDialog(true);
-      return;
-    }
-    setReviewData({
-      id: Date.now(),
-      startedAt: Date.now(),
-      videoBlob: data.videoBlob,
-      series: data.series,
-      duration: data.duration,
-      joints: data.joints,
-      facingMode: uploadIsMirrored ? "user" : "environment",
-    });
-  };
-
-  const handleUploadCancel = () => {
-    setUploadFile(null);
-    setTrimRange(null);
-    setIsFrozen(false);
   };
 
   const formatRecordingDuration = (seconds: number) => {
@@ -487,9 +347,6 @@ export default function Home() {
         setShowRecordingsList(false);
         setShowSavedToast(false);
         setShowNoDataDialog(false);
-        setUploadFile(null);
-        setPendingTrimFile(null);
-        setTrimRange(null);
         if (isRecordingRef.current) {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -497,13 +354,7 @@ export default function Home() {
             clearInterval(recordingTimerRef.current);
             recordingTimerRef.current = null;
           }
-          const mr = mediaRecorderRef.current;
-          if (mr && mr.state !== "inactive") {
-            mr.onstop = null;
-            mr.stop();
-            mediaRecorderRef.current = null;
-          }
-          videoChunksRef.current = [];
+          kinematicsSeriesRef.current = {};
         }
       }
     };
@@ -588,7 +439,7 @@ export default function Home() {
           >
             <h3 className="font-display text-white text-lg mb-2">Sin datos articulares</h3>
             <p className="text-white/60 text-sm leading-relaxed mb-5">
-              No se detectaron articulaciones en el vídeo. Asegúrate de que la persona aparece completa en el encuadre y con buena iluminación.
+              No se detectaron articulaciones durante la grabación. Asegúrate de que la persona aparece completa en el encuadre y con buena iluminación.
             </p>
             <div className="flex justify-end">
               <button
@@ -622,7 +473,6 @@ export default function Home() {
             setShowPoseOrientationModal={setShowPoseOrientationModal}
             onPoseOrientationInferredChange={setPoseOrientationInferred}
             onJointData={handleJointData}
-            onStreamReady={(s) => { streamRef.current = s; }}
           />
         )}
       </div>
@@ -692,18 +542,6 @@ export default function Home() {
           />
 
           <button
-            disabled={selectedJoints.length === 0 || isRecording}
-            onClick={handleUploadClick}
-            className={`h-6 w-6 flex items-center justify-center ${
-              selectedJoints.length === 0 || isRecording
-                ? "opacity-25 cursor-not-allowed"
-                : ""
-            }`}
-          >
-            <ArrowUpTrayIcon className="h-6 w-6 text-white" />
-          </button>
-
-          <button
             disabled={selectedJoints.length === 0 && !isRecording}
             onClick={isRecording ? handleStopRecording : handleStartRecording}
             className={`h-6 w-6 rounded-full flex items-center justify-center transition-all duration-150 ${
@@ -748,10 +586,7 @@ export default function Home() {
         )}
       </section>
 
-      {/* Bottom right controls — fixed position; AngleGraph reserves bottom padding
-          so its content never renders underneath these instead of chasing the sheet
-          with an animated offset (which drifted out of sync with the sheet's own
-          transition). */}
+      {/* Bottom right controls */}
       <div className="absolute right-1 bottom-2 z-30 flex flex-row-reverse items-center gap-2">
         <ArrowTopRightOnSquareIcon
           className={`w-8 h-8 text-white transition-transform ${
@@ -799,11 +634,9 @@ export default function Home() {
 
       {reviewData && (
         <KinematicsReview
-          videoBlob={reviewData.videoBlob}
           series={reviewData.series}
           duration={reviewData.duration}
           joints={reviewData.joints}
-          facingMode={reviewData.facingMode}
           recordingNumber={recordings.length + 1}
           onSend={handleSendFromReview}
           onDiscard={() => setReviewData(null)}
@@ -817,67 +650,6 @@ export default function Home() {
           onDelete={handleDeleteRecording}
           onSend={handleSendToReport}
           onClose={() => setShowRecordingsList(false)}
-        />
-      )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleFileSelected}
-      />
-
-      {pendingUploadFile && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center px-8 gap-6">
-          <p className="text-white text-center text-sm leading-relaxed">
-            ¿Con qué cámara se grabó el vídeo?
-          </p>
-          <div className="flex flex-col w-full max-w-xs gap-3">
-            <button
-              onClick={() => handleConfirmUpload(true)}
-              className="w-full py-3 rounded-md text-sm font-medium text-white active:opacity-80"
-              style={{ background: "#5dadec" }}
-            >
-              Cámara frontal
-            </button>
-            <button
-              onClick={() => handleConfirmUpload(false)}
-              className="w-full py-3 rounded-md text-sm font-medium text-white active:opacity-80 border border-white/20 bg-white/5"
-            >
-              Cámara trasera
-            </button>
-          </div>
-          <button
-            onClick={handleCancelPendingUpload}
-            className="text-white/40 text-sm"
-          >
-            Cancelar
-          </button>
-        </div>
-      )}
-
-      {pendingTrimFile && (
-        <VideoTrimmer
-          file={pendingTrimFile}
-          isMirrored={uploadIsMirrored}
-          onConfirm={handleConfirmTrim}
-          onCancel={handleCancelTrim}
-        />
-      )}
-
-      {uploadFile && (
-        <VideoProcessor
-          file={uploadFile}
-          isMirrored={uploadIsMirrored}
-          selectedJoints={selectedJoints}
-          poseOrientation={poseOrientation}
-          orthogonalReference={orthogonalReference}
-          angularHistorySize={settings.pose.angularHistorySize}
-          startTime={trimRange?.start}
-          endTime={trimRange?.end}
-          onComplete={handleUploadComplete}
-          onCancel={handleUploadCancel}
         />
       )}
     </main>

@@ -5,19 +5,8 @@ import { CameraIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/out
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
-import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 
 const PAD = { top: 16, right: 8, bottom: 28, left: 36 };
-
-const WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
-const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-const MIN_SCORE = 0.3;
-
-const POSE_CONNECTIONS: [number, number][] = [
-  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-  [11, 23], [12, 24], [23, 24],
-  [23, 25], [25, 27], [24, 26], [26, 28],
-];
 
 function fmtTime(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -215,68 +204,10 @@ function paintChart(
   ctx.restore();
 }
 
-function drawSkeleton(
-  canvas: HTMLCanvasElement,
-  landmarks: { x: number; y: number; visibility?: number }[],
-  videoW: number,
-  videoH: number,
-  mirror: boolean,
-) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  const cW = canvas.offsetWidth;
-  const cH = canvas.offsetHeight;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.round(cW * dpr);
-  canvas.height = Math.round(cH * dpr);
-
-  ctx.save();
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, cW, cH);
-
-  const scale = Math.min(cW / videoW, cH / videoH);
-  const rW = videoW * scale;
-  const rH = videoH * scale;
-  const offX = (cW - rW) / 2;
-  const offY = (cH - rH) / 2;
-
-  const toX = (nx: number) => {
-    const x = mirror ? (1 - nx) : nx;
-    return offX + x * rW;
-  };
-  const toY = (ny: number) => offY + ny * rH;
-
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
-  ctx.lineWidth = 1.5;
-  for (const [a, b] of POSE_CONNECTIONS) {
-    const lmA = landmarks[a];
-    const lmB = landmarks[b];
-    if (!lmA || !lmB) continue;
-    if ((lmA.visibility ?? 1) < MIN_SCORE || (lmB.visibility ?? 1) < MIN_SCORE) continue;
-    ctx.beginPath();
-    ctx.moveTo(toX(lmA.x), toY(lmA.y));
-    ctx.lineTo(toX(lmB.x), toY(lmB.y));
-    ctx.stroke();
-  }
-
-  for (const lm of landmarks) {
-    if ((lm.visibility ?? 1) < MIN_SCORE) continue;
-    ctx.beginPath();
-    ctx.arc(toX(lm.x), toY(lm.y), 3.5, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(93,173,236,0.9)";
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
 interface Props {
-  videoBlob: Blob;
   series: KinematicsSeries;
   duration: number;
   joints: CanvasKeypointName[];
-  facingMode: string;
   recordingNumber: number;
   onSend: (series: KinematicsSeries) => void;
   onDiscard: () => void;
@@ -284,25 +215,19 @@ interface Props {
 }
 
 export default function KinematicsReview({
-  videoBlob,
   series,
   duration,
   joints,
-  facingMode,
   recordingNumber,
   onSend,
   onDiscard,
   onAcceptAndRecordAnother,
 }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const skeletonCanvasRef = useRef<HTMLCanvasElement>(null);
   const curMsRef = useRef(0);
   const draggingRef = useRef(false);
-  const detectorRef = useRef<PoseLandmarker | null>(null);
   const needsRepaintRef = useRef(false);
 
-  const [isDetectorReady, setIsDetectorReady] = useState(false);
   const [workingSeries, setWorkingSeries] = useState<KinematicsSeries>(() => series);
   const workingSeriesRef = useRef<KinematicsSeries>(series);
   const [editMode, setEditMode] = useState(false);
@@ -324,105 +249,7 @@ export default function KinematicsReview({
     return mx <= 90 ? 90 : mx <= 135 ? 135 : 180;
   }, [joints, series]);
 
-  const hasVideo = videoBlob.size > 0;
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const mirror = facingMode === "user";
-
-  useEffect(() => {
-    if (!hasVideo) return;
-    const url = URL.createObjectURL(videoBlob);
-    setVideoUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [videoBlob, hasVideo]);
-
-  // Stable detect function — reads refs at call time, no stale closure risk
-  const detectCurrentFrame = useCallback(() => {
-    const video = videoRef.current;
-    const skCanvas = skeletonCanvasRef.current;
-    const det = detectorRef.current;
-    if (!det || !video || !video.videoWidth || !skCanvas) return;
-    try {
-      const result = det.detect(video);
-      if (result.landmarks.length > 0) {
-        drawSkeleton(skCanvas, result.landmarks[0], video.videoWidth, video.videoHeight, mirror);
-      } else {
-        const ctx = skCanvas.getContext("2d");
-        ctx?.clearRect(0, 0, skCanvas.width, skCanvas.height);
-      }
-    } catch {
-      // ignore individual frame failures
-    }
-  }, [mirror]);
-
-  // Build local IMAGE/CPU detector for skeleton overlay
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
-        const lm = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
-          runningMode: "IMAGE",
-          numPoses: 1,
-          minPoseDetectionConfidence: MIN_SCORE,
-          minPosePresenceConfidence: MIN_SCORE,
-          minTrackingConfidence: MIN_SCORE,
-        });
-        if (!cancelled) {
-          detectorRef.current = lm;
-          setIsDetectorReady(true);
-        } else {
-          lm.close();
-        }
-      } catch {
-        // skeleton overlay unavailable; non-critical
-      }
-    })();
-    return () => {
-      cancelled = true;
-      detectorRef.current?.close();
-      detectorRef.current = null;
-      setIsDetectorReady(false);
-    };
-  }, []);
-
-  // Re-detect when detector becomes ready and video is already loaded/paused
-  useEffect(() => {
-    if (!isDetectorReady) return;
-    const video = videoRef.current;
-    if (!video || !video.videoWidth) return;
-    if (video.paused || video.ended) {
-      detectCurrentFrame();
-    }
-  }, [isDetectorReady, detectCurrentFrame]);
-
-  // Skeleton detection on pause/seeked-while-paused/loadeddata; clear on play
-  useEffect(() => {
-    const video = videoRef.current;
-    const skCanvas = skeletonCanvasRef.current;
-    if (!video || !skCanvas) return;
-
-    const clearSkeleton = () => {
-      const ctx = skCanvas.getContext("2d");
-      ctx?.clearRect(0, 0, skCanvas.width, skCanvas.height);
-    };
-
-    const onSeeked = () => { if (video.paused) detectCurrentFrame(); };
-
-    video.addEventListener("pause", detectCurrentFrame);
-    video.addEventListener("seeked", onSeeked);
-    video.addEventListener("loadeddata", detectCurrentFrame);
-    video.addEventListener("play", clearSkeleton);
-
-    return () => {
-      video.removeEventListener("pause", detectCurrentFrame);
-      video.removeEventListener("seeked", onSeeked);
-      video.removeEventListener("loadeddata", detectCurrentFrame);
-      video.removeEventListener("play", clearSkeleton);
-    };
-  }, [detectCurrentFrame]);
-
-  // rAF loop: sync cursor from video playback and redraw chart when needed
+  // rAF loop: resize canvas and repaint when cursor or series changes
   useEffect(() => {
     let rafId: number;
     let lastCurMs = -1;
@@ -430,11 +257,6 @@ export default function KinematicsReview({
 
     const tick = () => {
       rafId = requestAnimationFrame(tick);
-
-      if (!draggingRef.current && !editMode && videoRef.current) {
-        const t = videoRef.current.currentTime * 1000;
-        if (Math.abs(t - curMsRef.current) > 30) curMsRef.current = t;
-      }
 
       const cv = canvasRef.current;
       if (!cv) return;
@@ -471,13 +293,12 @@ export default function KinematicsReview({
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  // editMode is a dep so the cursor-sync branch toggles correctly when entering/exiting edit
-  }, [joints, duration, yMax, editMode]);
+  }, [joints, duration, yMax]);
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
-  const handleGoHome = () => {
+  const handleGoHome = useCallback(() => {
     window.parent.postMessage({ type: "PHYSIQ_GO_HOME" }, "*");
-  };
+  }, []);
 
   const chartTimeFromClientX = (clientX: number): number => {
     const cv = canvasRef.current;
@@ -485,12 +306,6 @@ export default function KinematicsReview({
     const rect = cv.getBoundingClientRect();
     const plotW = rect.width - PAD.left - PAD.right;
     return Math.min(Math.max((clientX - rect.left - PAD.left) / plotW, 0), 1) * duration;
-  };
-
-  const scrub = (clientX: number) => {
-    const t = chartTimeFromClientX(clientX);
-    curMsRef.current = t;
-    if (videoRef.current) videoRef.current.currentTime = t / 1000;
   };
 
   const handleInterpolate = () => {
@@ -567,30 +382,8 @@ export default function KinematicsReview({
         </div>
       </div>
 
-      {/* Video + skeleton overlay */}
-      {hasVideo && videoUrl && (
-        <div className="shrink-0 bg-black overflow-hidden relative" style={{ flex: "5 5 0", minHeight: 0 }}>
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            controls
-            playsInline
-            className={`w-full h-full object-contain${mirror ? " video-mirrored" : ""}`}
-            style={mirror ? { transform: "scaleX(-1)" } : undefined}
-          />
-          <canvas
-            ref={skeletonCanvasRef}
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={mirror ? { transform: "scaleX(-1)" } : undefined}
-          />
-        </div>
-      )}
-
-      {/* Angle chart */}
-      <div
-        className="overflow-hidden"
-        style={{ flex: hasVideo ? "3 3 0" : "1 1 0", minHeight: 0 }}
-      >
+      {/* Angle chart — fills all available space */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         <canvas
           ref={canvasRef}
           className="w-full h-full touch-none"
@@ -605,7 +398,9 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               draggingRef.current = true;
-              scrub(e.clientX);
+              const t = chartTimeFromClientX(e.clientX);
+              curMsRef.current = t;
+              needsRepaintRef.current = true;
             }
           }}
           onPointerMove={(e) => {
@@ -619,7 +414,8 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               if (!draggingRef.current) return;
-              scrub(e.clientX);
+              curMsRef.current = chartTimeFromClientX(e.clientX);
+              needsRepaintRef.current = true;
             }
           }}
           onPointerUp={() => {
