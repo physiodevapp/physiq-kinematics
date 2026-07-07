@@ -365,17 +365,17 @@ export default function KinematicsReview({
           <div className="flex items-center gap-4">
             <button
               onClick={toggleEditMode}
-              className="flex items-center gap-1 text-xs active:opacity-70 transition-colors"
+              className="flex items-center gap-1 text-sm active:opacity-70 transition-colors"
               style={editMode ? { color: "#5dadec" } : { color: "rgba(255,255,255,0.7)" }}
             >
-              <PencilSquareIcon className="h-4 w-4" />
+              <PencilSquareIcon className="h-5 w-5" />
               Editar
             </button>
             <button
               onClick={() => onAcceptAndRecordAnother(workingSeries)}
-              className="flex items-center gap-1 text-xs text-white/70 active:opacity-70"
+              className="flex items-center gap-1 text-sm text-white/70 active:opacity-70"
             >
-              <CameraIcon className="h-4 w-4" />
+              <CameraIcon className="h-5 w-5" />
               Cámara
             </button>
           </div>
@@ -459,7 +459,7 @@ export default function KinematicsReview({
       )}
 
       {/* Action buttons */}
-      <div className="shrink-0 flex gap-3 px-4 py-4">
+      {!editMode && <div className="shrink-0 flex gap-3 px-4 py-4">
         <button
           onClick={onDiscard}
           className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
@@ -473,7 +473,7 @@ export default function KinematicsReview({
         >
           Enviar al informe
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
