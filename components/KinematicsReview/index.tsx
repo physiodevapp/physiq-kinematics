@@ -503,7 +503,7 @@ export default function KinematicsReview({
               <button
                 disabled={!selRange}
                 onClick={handleInterpolate}
-                className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
+                className="flex-[2] py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
                 style={{ background: "#5dadec" }}
               >
                 Interpolar tramo
