@@ -210,7 +210,7 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
       {/* Record / stop button row */}
       <div className="shrink-0 flex items-center justify-end px-3 py-1 touch-none">
         <button
-          disabled={selectedJoints.length === 0 && !isRecording}
+          disabled={(selectedJoints.length === 0 || isFrozen) && !isRecording}
           onClick={isRecording ? onStopRecording : onStartRecording}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
             selectedJoints.length === 0 && !isRecording
