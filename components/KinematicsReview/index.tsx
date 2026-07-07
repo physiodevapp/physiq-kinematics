@@ -235,6 +235,7 @@ export default function KinematicsReview({
   const selRangeRef = useRef<{ start: number; end: number } | null>(null);
   const editAnchorRef = useRef<number | null>(null);
   const [prevWorkingSeries, setPrevWorkingSeries] = useState<KinematicsSeries | null>(null);
+  const [minRangeMs, setMinRangeMs] = useState(500);
 
   useEffect(() => {
     workingSeriesRef.current = workingSeries;
@@ -432,7 +433,7 @@ export default function KinematicsReview({
           onPointerUp={() => {
             if (editMode) {
               const r = selRangeRef.current;
-              if (r && (r.end - r.start) < 500) {
+              if (r && (r.end - r.start) < minRangeMs) {
                 selRangeRef.current = null;
                 setSelRange(null);
                 needsRepaintRef.current = true;
@@ -455,24 +456,39 @@ export default function KinematicsReview({
           <div className="shrink-0 flex gap-3 px-4 pt-2">
             <button
               onClick={handleCancelSelection}
-              className="flex-1 py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
             >
               Cancelar selección
             </button>
             <button
               disabled={!selRange}
               onClick={handleInterpolate}
-              className="flex-1 py-2 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
+              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 disabled:opacity-30"
               style={{ background: "#5dadec" }}
             >
               Interpolar tramo
             </button>
           </div>
+          <div className="shrink-0 flex items-center gap-3 px-4 pt-2">
+            <span className="font-mono text-xs text-white/40 whitespace-nowrap">Mín. selección</span>
+            <input
+              type="range"
+              min={0}
+              max={2000}
+              step={100}
+              value={minRangeMs}
+              onChange={e => setMinRangeMs(Number(e.target.value))}
+              className="flex-1 h-1 accent-[#5dadec]"
+            />
+            <span className="font-mono text-xs text-white/40 whitespace-nowrap w-14 text-right">
+              {minRangeMs === 0 ? "sin mín." : `${minRangeMs} ms`}
+            </span>
+          </div>
           {prevWorkingSeries && (
             <div className="shrink-0 px-4 pt-2">
               <button
                 onClick={handleUndo}
-                className="w-full py-2 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+                className="w-full py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
               >
                 Deshacer interpolación
               </button>
