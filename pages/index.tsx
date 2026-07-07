@@ -9,6 +9,7 @@ import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import { OrthogonalReference } from "@/providers/Settings";
 import { PoseOrientation } from "@/utils/pose";
+import { writeSession } from "@/utils/session";
 import { jointOptions, formatJointName } from "@/utils/joint";
 import {
   CameraIcon,
@@ -171,21 +172,20 @@ export default function Home() {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const handleSendFromReview = (correctedSeries: KinematicsSeries) => {
+  const handleSendFromReview = async (correctedSeries: KinematicsSeries) => {
     if (!reviewData) return;
     const reviewEntry = { ...reviewData, series: correctedSeries };
     const all = [...recordings, reviewEntry];
     if (!all.length) return;
+    const kinematics = all.map(({ startedAt, duration, joints, series }) => ({
+      startedAt,
+      duration,
+      joints,
+      series,
+    }));
+    await writeSession({ kinematics });
     const ch = new BroadcastChannel("physiq-session");
-    ch.postMessage({
-      type: "SESSION_KINEMATICS",
-      kinematics: all.map(({ startedAt, duration, joints, series }) => ({
-        startedAt,
-        duration,
-        joints,
-        series,
-      })),
-    });
+    ch.postMessage({ type: "SESSION_KINEMATICS", kinematics });
     ch.close();
     setRecordings([]);
     setReviewData(null);
@@ -197,19 +197,18 @@ export default function Home() {
     toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
   };
 
-  const handleSendToReport = () => {
+  const handleSendToReport = async () => {
     const all = reviewData ? [...recordings, reviewData] : recordings;
     if (!all.length) return;
+    const kinematics = all.map(({ startedAt, duration, joints, series }) => ({
+      startedAt,
+      duration,
+      joints,
+      series,
+    }));
+    await writeSession({ kinematics });
     const ch = new BroadcastChannel("physiq-session");
-    ch.postMessage({
-      type: "SESSION_KINEMATICS",
-      kinematics: all.map(({ startedAt, duration, joints, series }) => ({
-        startedAt,
-        duration,
-        joints,
-        series,
-      })),
-    });
+    ch.postMessage({ type: "SESSION_KINEMATICS", kinematics });
     ch.close();
     setRecordings([]);
     setReviewData(null);
