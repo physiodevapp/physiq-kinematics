@@ -459,7 +459,7 @@ export default function KinematicsReview({
       )}
 
       {/* Action buttons */}
-      <div className="shrink-0 flex gap-3 px-4 py-4">
+      {!editMode && <div className="shrink-0 flex gap-3 px-4 py-4">
         <button
           onClick={onDiscard}
           className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
@@ -473,7 +473,7 @@ export default function KinematicsReview({
         >
           Enviar al informe
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
