@@ -242,6 +242,15 @@ export default function KinematicsReview({
     needsRepaintRef.current = true;
   }, [workingSeries]);
 
+  useEffect(() => {
+    const r = selRangeRef.current;
+    if (r && (r.end - r.start) < minRangeMs) {
+      selRangeRef.current = null;
+      setSelRange(null);
+      needsRepaintRef.current = true;
+    }
+  }, [minRangeMs]);
+
   const yMax = useMemo(() => {
     let mx = 0;
     for (const j of joints) {
@@ -395,7 +404,7 @@ export default function KinematicsReview({
       </div>
 
       {/* Angle chart — fills all available space */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden relative">
         <canvas
           ref={canvasRef}
           className="w-full h-full touch-none"
@@ -448,12 +457,41 @@ export default function KinematicsReview({
             draggingRef.current = false;
           }}
         />
+
+        {/* Edit bottom sheet overlay — slider + undo, floats above chart */}
+        {editMode && (
+          <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl px-4 pt-4 pb-3" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}>
+            <div className="flex justify-between mb-2">
+              <span className="font-mono text-xs text-white/40">Mín. selección</span>
+              <span className="font-mono text-xs text-white/60">
+                {minRangeMs === 0 ? "sin mín." : `${minRangeMs} ms`}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={2000}
+              step={100}
+              value={minRangeMs}
+              onChange={e => setMinRangeMs(Number(e.target.value))}
+              className="w-full accent-[#5dadec]"
+            />
+            {prevWorkingSeries && (
+              <button
+                onClick={handleUndo}
+                className="w-full mt-3 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+              >
+                Deshacer interpolación
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Edit action bar */}
-      {editMode && (
-        <>
-          <div className="shrink-0 flex gap-3 px-4 pt-2">
+      {/* Action row — always same position; swaps buttons in edit mode */}
+      <div className="shrink-0 flex gap-3 px-4 py-4">
+        {editMode ? (
+          <>
             <button
               onClick={handleCancelSelection}
               className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
@@ -468,51 +506,25 @@ export default function KinematicsReview({
             >
               Interpolar tramo
             </button>
-          </div>
-          <div className="shrink-0 flex items-center gap-3 px-4 pt-2">
-            <span className="font-mono text-xs text-white/40 whitespace-nowrap">Mín. selección</span>
-            <input
-              type="range"
-              min={0}
-              max={2000}
-              step={100}
-              value={minRangeMs}
-              onChange={e => setMinRangeMs(Number(e.target.value))}
-              className="flex-1 h-1 accent-[#5dadec]"
-            />
-            <span className="font-mono text-xs text-white/40 whitespace-nowrap w-14 text-right">
-              {minRangeMs === 0 ? "sin mín." : `${minRangeMs} ms`}
-            </span>
-          </div>
-          {prevWorkingSeries && (
-            <div className="shrink-0 px-4 pt-2">
-              <button
-                onClick={handleUndo}
-                className="w-full py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-              >
-                Deshacer interpolación
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Action buttons */}
-      {!editMode && <div className="shrink-0 flex gap-3 px-4 py-4">
-        <button
-          onClick={onDiscard}
-          className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-        >
-          Descartar
-        </button>
-        <button
-          onClick={() => onSend(workingSeries)}
-          className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
-          style={{ background: "#5dadec" }}
-        >
-          Enviar al informe
-        </button>
-      </div>}
+          </>
+        ) : (
+          <>
+            <button
+              onClick={onDiscard}
+              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+            >
+              Descartar
+            </button>
+            <button
+              onClick={() => onSend(workingSeries)}
+              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
+              style={{ background: "#5dadec" }}
+            >
+              Enviar al informe
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
