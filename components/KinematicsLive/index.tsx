@@ -160,7 +160,7 @@ export default function KinematicsLive({
           cancelAnimationFrame(animationRef.current);
           animationRef.current = null;
         }
-        if (webcamRef.current?.video && !isFrozen) {
+        if (webcamRef.current?.video) {
           webcamRef.current.video.pause();
         }
         return;

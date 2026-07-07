@@ -59,6 +59,8 @@ interface VideoProcessorProps {
   poseOrientation: PoseOrientation | null;
   orthogonalReference: OrthogonalReference;
   angularHistorySize: number;
+  startTime?: number;
+  endTime?: number;
   onComplete: (data: {
     videoBlob: Blob;
     series: KinematicsSeries;
@@ -75,6 +77,8 @@ export default function VideoProcessor({
   poseOrientation,
   orthogonalReference,
   angularHistorySize,
+  startTime: trimStart,
+  endTime: trimEnd,
   onComplete,
   onCancel,
 }: VideoProcessorProps) {
@@ -86,6 +90,9 @@ export default function VideoProcessor({
     "waiting" | "processing" | "done" | "error"
   >("waiting");
   const [errorMsg, setErrorMsg] = useState("");
+  // Signals that loadedmetadata fired and the video is ready to process.
+  // Decoupled from detector readiness to fix a race on first cold load.
+  const [videoReady, setVideoReady] = useState(false);
 
   const cancelledRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -113,17 +120,12 @@ export default function VideoProcessor({
 
     const handleLoaded = () => {
       if (cancelledRef.current) return;
-      if (!detector || !isDetectorReady) {
-        setStatus("error");
-        setErrorMsg("El detector de poses no está listo. Espera a que cargue.");
-        return;
-      }
       if (!isFinite(video.duration) || video.duration <= 0) {
         setStatus("error");
         setErrorMsg("No se pudo determinar la duración del vídeo.");
         return;
       }
-      processVideo(video, worker);
+      setVideoReady(true);
     };
 
     video.addEventListener("loadedmetadata", handleLoaded, { once: true });
@@ -155,6 +157,19 @@ export default function VideoProcessor({
     };
   }, []);
 
+  // Start processing once both the video metadata and the detector are ready.
+  // This decouples the two async paths so a cold-load (cache cleared) works
+  // even when loadedmetadata fires before the detector finishes downloading.
+  useEffect(() => {
+    if (!videoReady || !isDetectorReady || !detector || status !== 'waiting') return;
+    if (cancelledRef.current) return;
+    processVideo(videoRef.current!, workerRef.current!);
+  // processVideo is intentionally omitted: the effect re-runs when detector/
+  // videoReady change, capturing the current closure which already has the
+  // fresh detector value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoReady, isDetectorReady, detector, status]);
+
   async function processVideo(video: HTMLVideoElement, worker: Worker) {
     setStatus("processing");
 
@@ -182,7 +197,9 @@ export default function VideoProcessor({
       'left_foot_index', 'right_foot_index',
     ];
 
-    const duration = video.duration * 1000;
+    const effectiveStart = trimStart ?? 0;
+    const effectiveEnd = trimEnd ?? video.duration;
+    const duration = (effectiveEnd - effectiveStart) * 1000;
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
@@ -190,11 +207,11 @@ export default function VideoProcessor({
     const series: KinematicsSeries = {};
     jointDataRef.current = {};
 
-    let currentTime = 0;
+    let currentTime = effectiveStart;
     let frameCount = 0;
     let detectionErrors = 0;
 
-    while (currentTime <= video.duration && !cancelledRef.current) {
+    while (currentTime <= effectiveEnd && !cancelledRef.current) {
       video.currentTime = currentTime;
       await new Promise<void>((resolve) => {
         const onSeeked = () => { clearTimeout(timer); resolve(); };
@@ -247,7 +264,7 @@ export default function VideoProcessor({
           poseOrientation: effectiveOrientation,
         });
 
-        const elapsedMs = currentTime * 1000;
+        const elapsedMs = (currentTime - effectiveStart) * 1000;
         Object.entries(updatedJointData).forEach(([joint, jd]) => {
           if (!jd) return;
           if (!series[joint]) {
@@ -262,7 +279,7 @@ export default function VideoProcessor({
       frameCount++;
 
       if (frameCount % 5 === 0) {
-        setProgress(Math.min(currentTime / video.duration, 1));
+        setProgress(Math.min((currentTime - effectiveStart) / (effectiveEnd - effectiveStart), 1));
       }
     }
 
