@@ -494,10 +494,11 @@ export default function KinematicsReview({
           ) : (
             <>
               <button
+                disabled={!selRange}
                 onClick={handleCancelSelection}
-                className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+                className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5 disabled:opacity-30"
               >
-                Cancelar selección
+                Cancelar
               </button>
               <button
                 disabled={!selRange}
