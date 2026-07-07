@@ -16,7 +16,7 @@ import {
 import { jointConfigMap, formatJointName } from "@/utils/joint";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
-const PROCESS_FPS = 15;
+const PROCESS_FPS = 6;
 
 const OUTLIER_WINDOW = 5;
 const OUTLIER_THRESHOLD = 20;
@@ -197,7 +197,12 @@ export default function VideoProcessor({
     while (currentTime <= video.duration && !cancelledRef.current) {
       video.currentTime = currentTime;
       await new Promise<void>((resolve) => {
-        video.addEventListener("seeked", () => resolve(), { once: true });
+        const onSeeked = () => { clearTimeout(timer); resolve(); };
+        const timer = setTimeout(() => {
+          video.removeEventListener("seeked", onSeeked);
+          resolve();
+        }, 2500);
+        video.addEventListener("seeked", onSeeked, { once: true });
       });
 
       if (cancelledRef.current) break;
