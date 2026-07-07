@@ -212,7 +212,7 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
         <button
           disabled={(selectedJoints.length === 0 || isFrozen) && !isRecording}
           onClick={isRecording ? onStopRecording : onStartRecording}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all duration-150 ${
             selectedJoints.length === 0 && !isRecording
               ? "opacity-25 cursor-not-allowed text-white"
               : isRecording
@@ -222,12 +222,12 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
         >
           {isRecording ? (
             <>
-              <StopIcon className="h-3.5 w-3.5 text-red-500" />
+              <StopIcon className="h-5 w-5 text-red-500" />
               <span className="font-mono">{fmtDuration(recordingDuration)}</span>
             </>
           ) : (
             <>
-              <VideoCameraIcon className="h-3.5 w-3.5" />
+              <VideoCameraIcon className="h-5 w-5" />
               Grabar
             </>
           )}
