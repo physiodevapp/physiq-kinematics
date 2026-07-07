@@ -55,7 +55,6 @@ export default function VideoProcessor({
 
   const cancelledRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const processingCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const jointDataRef = useRef<JointDataMap>({});
   const objectUrlRef = useRef<string | null>(null);
@@ -75,9 +74,6 @@ export default function VideoProcessor({
     document.body.appendChild(video);
     videoRef.current = video;
 
-    const procCanvas = document.createElement("canvas");
-    processingCanvasRef.current = procCanvas;
-
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
 
@@ -93,7 +89,7 @@ export default function VideoProcessor({
         setErrorMsg("No se pudo determinar la duración del vídeo.");
         return;
       }
-      processVideo(video, procCanvas, worker);
+      processVideo(video, worker);
     };
 
     video.addEventListener("loadedmetadata", handleLoaded, { once: true });
@@ -125,11 +121,7 @@ export default function VideoProcessor({
     };
   }, []);
 
-  async function processVideo(
-    video: HTMLVideoElement,
-    procCanvas: HTMLCanvasElement,
-    worker: Worker
-  ) {
+  async function processVideo(video: HTMLVideoElement, worker: Worker) {
     setStatus("processing");
 
     const LANDMARK_NAMES = [
@@ -148,10 +140,6 @@ export default function VideoProcessor({
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
-    procCanvas.width = vw;
-    procCanvas.height = vh;
-    const procCtx = procCanvas.getContext("2d")!;
-
     const frameInterval = 1 / PROCESS_FPS;
     const series: KinematicsSeries = {};
     jointDataRef.current = {};
@@ -168,12 +156,10 @@ export default function VideoProcessor({
 
       if (cancelledRef.current) break;
 
-      procCtx.drawImage(video, 0, 0, vw, vh);
-
       let keypoints: Keypoint[] = [];
 
       try {
-        const result = detector!.detectForVideo(procCanvas, currentTime * 1000 + 1);
+        const result = detector!.detectForVideo(video, currentTime * 1000 + 1);
         if (result.landmarks.length > 0) {
           keypoints = result.landmarks[0]
             .map((lm, i) => ({
