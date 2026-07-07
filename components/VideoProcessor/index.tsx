@@ -18,6 +18,40 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 
 const PROCESS_FPS = 15;
 
+const OUTLIER_WINDOW = 5;
+const OUTLIER_THRESHOLD = 20;
+
+function cleanOutliers(series: KinematicsSeries): KinematicsSeries {
+  const cleaned: KinematicsSeries = {};
+  for (const joint of Object.keys(series)) {
+    const { t, a } = series[joint];
+    if (a.length < 3) { cleaned[joint] = { t, a }; continue; }
+    const c: (number | null)[] = [...a];
+    for (let i = 0; i < a.length; i++) {
+      const lo = Math.max(0, i - OUTLIER_WINDOW);
+      const hi = Math.min(a.length - 1, i + OUTLIER_WINDOW);
+      const win = a.slice(lo, hi + 1).slice().sort((x, y) => x - y);
+      const median = win[Math.floor(win.length / 2)];
+      if (Math.abs(a[i] - median) > OUTLIER_THRESHOLD) c[i] = null;
+    }
+    const clean: number[] = [];
+    for (let i = 0; i < c.length; i++) {
+      if (c[i] !== null) { clean.push(c[i] as number); continue; }
+      let prev = i - 1; while (prev >= 0 && c[prev] === null) prev--;
+      let next = i + 1; while (next < c.length && c[next] === null) next++;
+      if (prev < 0 && next >= c.length) clean.push(0);
+      else if (prev < 0) clean.push(c[next] as number);
+      else if (next >= c.length) clean.push(c[prev] as number);
+      else {
+        const f = (i - prev) / (next - prev);
+        clean.push(Math.round((c[prev] as number) + f * ((c[next] as number) - (c[prev] as number))));
+      }
+    }
+    cleaned[joint] = { t, a: clean };
+  }
+  return cleaned;
+}
+
 interface VideoProcessorProps {
   file: File;
   isMirrored: boolean;
@@ -244,7 +278,7 @@ export default function VideoProcessor({
 
     onComplete({
       videoBlob: file,
-      series,
+      series: cleanOutliers(series),
       duration,
       joints: [...selectedJoints],
     });
