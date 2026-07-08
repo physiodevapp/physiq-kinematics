@@ -631,6 +631,15 @@ export default function KinematicsReview({
         </div>
       )}
 
+      {/* Spacer — pushes chart down in sync with the translate banner */}
+      <div
+        className="shrink-0"
+        style={{
+          height: showTranslateBanner ? 40 : 0,
+          transition: "height 0.25s ease",
+        }}
+      />
+
       {/* Angle chart — fills all available space */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <canvas
