@@ -285,6 +285,12 @@ export default function KinematicsReview({
   } | null>(null);
   const lastTapRef = useRef(0);
 
+  // Pan: track initial finger position so the grabbed point stays under the finger
+  const panStartXRef = useRef(0);
+  const panStartMsRef = useRef(0);
+  const panSpanRef = useRef(0);
+  const isPanningRef = useRef(false);
+
   const [workingSeries, setWorkingSeries] = useState<KinematicsSeries>(() => series);
   const workingSeriesRef = useRef<KinematicsSeries>(series);
   const [editMode, setEditMode] = useState(false);
@@ -609,6 +615,11 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               draggingRef.current = true;
+              isPanningRef.current = false;
+              panStartXRef.current = e.clientX;
+              panStartMsRef.current = chartTimeFromClientX(e.clientX);
+              panSpanRef.current = viewRef.current.end - viewRef.current.start;
+              // Set cursor immediately on touch so a tap updates it
               curMsRef.current = chartTimeFromClientX(e.clientX);
               needsRepaintRef.current = true;
             }
@@ -644,8 +655,27 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               if (!draggingRef.current) return;
-              curMsRef.current = chartTimeFromClientX(e.clientX);
-              needsRepaintRef.current = true;
+              const dx = e.clientX - panStartXRef.current;
+              const isZoomed = panSpanRef.current < duration;
+              if (isZoomed && Math.abs(dx) > 5) {
+                // Pan: keep the grabbed ms fixed under the finger
+                isPanningRef.current = true;
+                const cv = canvasRef.current;
+                if (!cv) return;
+                const rect = cv.getBoundingClientRect();
+                const plotW = rect.width - PAD.left - PAD.right;
+                const frac = (e.clientX - rect.left - PAD.left) / plotW;
+                const span = panSpanRef.current;
+                let newStart = panStartMsRef.current - frac * span;
+                let newEnd = newStart + span;
+                if (newStart < 0) { newStart = 0; newEnd = span; }
+                if (newEnd > duration) { newEnd = duration; newStart = duration - span; }
+                viewRef.current = { start: newStart, end: newEnd };
+                needsRepaintRef.current = true;
+              } else if (!isPanningRef.current) {
+                curMsRef.current = chartTimeFromClientX(e.clientX);
+                needsRepaintRef.current = true;
+              }
             }
           }}
           onPointerUp={(e) => {
@@ -663,6 +693,7 @@ export default function KinematicsReview({
               }
               editAnchorRef.current = null;
             } else {
+              isPanningRef.current = false;
               draggingRef.current = false;
             }
           }}
@@ -671,6 +702,7 @@ export default function KinematicsReview({
             pinchRef.current = null;
             editAnchorRef.current = null;
             draggingRef.current = false;
+            isPanningRef.current = false;
           }}
         />
 
