@@ -110,6 +110,9 @@ export default function Home() {
   // Start camera immediately when standalone; wait for PHYSIQ_SAT_VISIBLE when inside hub iframe
   const [isCameraActive, setIsCameraActive] = useState(!isInIframe);
 
+  // Suspend camera and worker while a full-screen overlay (list or review) is open
+  const isCameraRunning = isCameraActive && !showRecordingsList && reviewData === null;
+
   const handleGoHome = () => {
     window.parent.postMessage({ type: "PHYSIQ_GO_HOME" }, "*");
   };
@@ -471,13 +474,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (isCameraActive) {
+    if (isCameraRunning) {
       handleWorkerLifecycle(true);
     } else {
       handleWorkerLifecycle(false);
     }
     return () => handleWorkerLifecycle(false);
-  }, [isCameraActive]);
+  }, [isCameraRunning]);
 
   return (
     <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
@@ -567,9 +570,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* Camera feed + canvas — only mounted when satellite is visible */}
+      {/* Camera feed + canvas — only mounted when satellite is visible and no overlay is open */}
       <div className="relative w-full flex-1">
-        {isCameraActive && (
+        {isCameraRunning && (
           <KinematicsLive
             orthogonalReference={orthogonalReference}
             videoConstraints={videoConstraints}
