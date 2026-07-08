@@ -4,12 +4,12 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
-import type { KinematicsSeries } from "@/interfaces/kinematics";
+import type { KinematicsSeries, KinematicsReviewDraft } from "@/interfaces/kinematics";
 import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import { OrthogonalReference } from "@/providers/Settings";
 import { PoseOrientation } from "@/utils/pose";
-import { writeSession } from "@/utils/session";
+import { readSession, writeSession } from "@/utils/session";
 import { jointOptions, formatJointName } from "@/utils/joint";
 import {
   CameraIcon,
@@ -95,8 +95,10 @@ export default function Home() {
     joints: CanvasKeypointName[];
   };
   const [reviewData, setReviewData] = useState<ReviewData | null>(null);
+  const [reviewSavedIndex, setReviewSavedIndex] = useState<number | null>(null);
   const [recordings, setRecordings] = useState<ReviewData[]>([]);
   const [showRecordingsList, setShowRecordingsList] = useState(false);
+  const idbLoadedRef = useRef(false);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
@@ -172,10 +174,32 @@ export default function Home() {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const handleOpenRecording = (index: number) => {
+    setReviewSavedIndex(index);
+    setReviewData(recordings[index]);
+    setShowRecordingsList(false);
+  };
+
+  const handleBackToList = (correctedSeries: KinematicsSeries) => {
+    if (reviewSavedIndex === null) return;
+    setRecordings((prev) =>
+      prev.map((r, i) => (i === reviewSavedIndex ? { ...r, series: correctedSeries } : r))
+    );
+    setReviewData(null);
+    setReviewSavedIndex(null);
+    setShowRecordingsList(true);
+  };
+
   const handleSendFromReview = async (correctedSeries: KinematicsSeries) => {
     if (!reviewData) return;
-    const reviewEntry = { ...reviewData, series: correctedSeries };
-    const all = [...recordings, reviewEntry];
+    let all: ReviewData[];
+    if (reviewSavedIndex !== null) {
+      all = recordings.map((r, i) =>
+        i === reviewSavedIndex ? { ...r, series: correctedSeries } : r
+      );
+    } else {
+      all = [...recordings, { ...reviewData, series: correctedSeries }];
+    }
     if (!all.length) return;
     const kinematics = all.map(({ startedAt, duration, joints, series }) => ({
       startedAt,
@@ -189,6 +213,7 @@ export default function Home() {
     ch.close();
     setRecordings([]);
     setReviewData(null);
+    setReviewSavedIndex(null);
     setShowRecordingsList(false);
     if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
     setShowSavedToast(false);
@@ -328,6 +353,36 @@ export default function Home() {
   useEffect(() => {
     new Image().src = `${basePath}/human.png`;
   }, [basePath]);
+
+  // Restore saved draft recordings from IDB on mount
+  useEffect(() => {
+    readSession().then((s) => {
+      if (s?.kinematicsDraft?.length) {
+        setRecordings(s.kinematicsDraft as ReviewData[]);
+      }
+      idbLoadedRef.current = true;
+    });
+  }, []);
+
+  // Persist draft recordings to IDB whenever the list changes
+  useEffect(() => {
+    if (!idbLoadedRef.current) return;
+    writeSession({ kinematicsDraft: recordings as KinematicsReviewDraft[] });
+  }, [recordings]);
+
+  // Clear recordings when the session is cleared from another satellite
+  useEffect(() => {
+    const ch = new BroadcastChannel("physiq-session");
+    ch.onmessage = (e) => {
+      if (e.data?.type === "SESSION_CLEAR") {
+        idbLoadedRef.current = false;
+        setRecordings([]);
+        setReviewData(null);
+        setReviewSavedIndex(null);
+      }
+    };
+    return () => ch.close();
+  }, []);
 
   // Hub integration: listen for visibility messages
   useEffect(() => {
@@ -624,10 +679,12 @@ export default function Home() {
           series={reviewData.series}
           duration={reviewData.duration}
           joints={reviewData.joints}
-          recordingNumber={recordings.length + 1}
+          recordingNumber={reviewSavedIndex !== null ? reviewSavedIndex + 1 : recordings.length + 1}
+          mode={reviewSavedIndex !== null ? 'saved' : 'new'}
           onSend={handleSendFromReview}
-          onDiscard={() => setReviewData(null)}
+          onDiscard={() => { setReviewData(null); setReviewSavedIndex(null); }}
           onAcceptAndRecordAnother={handleAcceptAndRecordAnother}
+          onBackToList={handleBackToList}
         />
       )}
 
@@ -635,6 +692,7 @@ export default function Home() {
         <KinematicsRecordingsList
           recordings={recordings}
           onDelete={handleDeleteRecording}
+          onOpen={handleOpenRecording}
           onSend={handleSendToReport}
           onClose={() => setShowRecordingsList(false)}
         />

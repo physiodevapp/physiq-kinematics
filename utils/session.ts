@@ -1,4 +1,4 @@
-import type { KinematicsPayload } from "@/interfaces/kinematics";
+import type { KinematicsPayload, KinematicsReviewDraft } from "@/interfaces/kinematics";
 
 const SESSION_TTL = 24 * 60 * 60 * 1000;
 
@@ -16,6 +16,7 @@ export interface SessionRecord {
   force: unknown[] | null;
   questionnaires: unknown[] | null;
   kinematics: KinematicsPayload[] | null;
+  kinematicsDraft: KinematicsReviewDraft[] | null;
 }
 
 function openSessionDB(): Promise<IDBDatabase> {
@@ -77,6 +78,7 @@ export function writeSession(patch: Partial<SessionRecord>): Promise<SessionReco
                   force: null,
                   questionnaires: null,
                   kinematics: null,
+                  kinematicsDraft: null,
                   ...patch,
                 };
             store.put(next, "active");

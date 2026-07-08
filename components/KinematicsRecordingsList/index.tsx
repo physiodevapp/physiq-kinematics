@@ -13,6 +13,7 @@ interface Recording {
 interface Props {
   recordings: Recording[];
   onDelete: (id: number) => void;
+  onOpen: (index: number) => void;
   onSend: () => void;
   onClose: () => void;
 }
@@ -27,6 +28,7 @@ function fmtDuration(ms: number): string {
 export default function KinematicsRecordingsList({
   recordings,
   onDelete,
+  onOpen,
   onSend,
   onClose,
 }: Props) {
@@ -47,7 +49,11 @@ export default function KinematicsRecordingsList({
             <p className="text-white/40 text-sm py-4 text-center">No hay grabaciones guardadas</p>
           )}
           {recordings.map((r, i) => (
-            <div key={r.id} className="flex items-center justify-between rounded-md bg-white/5 px-3 py-2">
+            <div
+              key={r.id}
+              className="flex items-center justify-between rounded-md bg-white/5 px-3 py-2 cursor-pointer active:bg-white/10"
+              onClick={() => onOpen(i)}
+            >
               <div className="flex flex-col">
                 <span className="text-white text-sm font-mono">
                   Grabación {i + 1} · {fmtDuration(r.duration)}
@@ -56,7 +62,10 @@ export default function KinematicsRecordingsList({
                   {r.joints.map(formatJointName).join(", ")}
                 </span>
               </div>
-              <button onClick={() => onDelete(r.id)} className="p-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(r.id); }}
+                className="p-1"
+              >
                 <TrashIcon className="h-4 w-4 text-white/50" />
               </button>
             </div>
