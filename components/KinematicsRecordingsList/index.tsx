@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   GlobeAltIcon,
-  UserCircleIcon,
+  UserIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
@@ -165,25 +165,34 @@ export default function KinematicsRecordingsList({
         <div className="flex items-center gap-3">
           <button
             onClick={handleOpenSessionPanel}
-            className="active:opacity-70 transition-opacity"
+            className="flex items-center justify-center transition-colors"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: patient ? "#5dadec" : "#5a6e8a",
+              padding: "6px",
+              flexShrink: 0,
+            }}
             aria-label="Sesión"
           >
-            <UserCircleIcon
-              className="h-5 w-5"
-              style={
-                patient
-                  ? { color: "#5dadec" }
-                  : { color: "rgba(255,255,255,0.5)" }
-              }
-            />
+            <UserIcon className="h-4 w-4" />
           </button>
           <button
             onClick={handleTranslate}
-            className="text-white/50 active:opacity-70 transition-opacity"
+            className="flex items-center justify-center transition-colors"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#5a6e8a",
+              cursor: "pointer",
+              padding: "4px 8px",
+              borderRadius: 6,
+            }}
             aria-label="View in English"
             title="Long-press or right-click → Translate to English"
           >
-            <GlobeAltIcon className="h-5 w-5" />
+            <GlobeAltIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -221,13 +230,17 @@ export default function KinematicsRecordingsList({
       >
         <button
           onClick={onClose}
-          className="flex items-center gap-1.5 text-sm active:opacity-70 transition-opacity"
+          className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
           style={{
-            color: "rgba(255,255,255,0.7)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.05)",
-            borderRadius: 9999,
-            padding: "6px 14px",
+            color: "#8aa4bc",
+            border: "1px solid #232d45",
+            background: "transparent",
+            borderRadius: 8,
+            padding: "5px 10px",
+            fontFamily: "'DM Mono', monospace",
+            fontSize: "11px",
+            flexShrink: 0,
+            whiteSpace: "nowrap",
           }}
         >
           <span className="leading-none">←</span>
@@ -237,13 +250,14 @@ export default function KinematicsRecordingsList({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTab("draft")}
-            className="text-xs transition-colors font-medium"
+            className="transition-colors font-medium"
             style={{
               padding: "6px 14px",
-              borderRadius: 9999,
+              borderRadius: 20,
+              fontSize: "0.72rem",
               ...(tab === "draft"
-                ? { background: "#5dadec", color: "#fff", border: "1px solid #5dadec" }
-                : { color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.2)", background: "transparent" }),
+                ? { background: "#5dadec", color: "#0a0d12", border: "1px solid #5dadec" }
+                : { color: "#8aa4bc", border: "1px solid #232d45", background: "#111620" }),
             }}
           >
             Borradores
@@ -253,13 +267,14 @@ export default function KinematicsRecordingsList({
           </button>
           <button
             onClick={() => setTab("sent")}
-            className="text-xs transition-colors font-medium"
+            className="transition-colors font-medium"
             style={{
               padding: "6px 14px",
-              borderRadius: 9999,
+              borderRadius: 20,
+              fontSize: "0.72rem",
               ...(tab === "sent"
-                ? { background: "#5dadec", color: "#fff", border: "1px solid #5dadec" }
-                : { color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.2)", background: "transparent" }),
+                ? { background: "#5dadec", color: "#0a0d12", border: "1px solid #5dadec" }
+                : { color: "#8aa4bc", border: "1px solid #232d45", background: "#111620" }),
             }}
           >
             Guardadas
