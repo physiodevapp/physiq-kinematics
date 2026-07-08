@@ -134,6 +134,8 @@ export default function KinematicsLive({
 
   useEffect(() => {
     videoConstraintsRef.current = videoConstraints;
+    // New camera stream auto-plays regardless of freeze state; reset to live.
+    if (isFrozen) setIsFrozen(false);
   }, [videoConstraints]);
 
   useEffect(() => {
