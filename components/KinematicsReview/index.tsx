@@ -218,9 +218,11 @@ interface Props {
   duration: number;
   joints: CanvasKeypointName[];
   recordingNumber: number;
+  mode: 'new' | 'saved';
   onSend: (series: KinematicsSeries) => void;
   onDiscard: () => void;
   onAcceptAndRecordAnother: (series: KinematicsSeries) => void;
+  onBackToList?: (series: KinematicsSeries) => void;
 }
 
 export default function KinematicsReview({
@@ -228,9 +230,11 @@ export default function KinematicsReview({
   duration,
   joints,
   recordingNumber,
+  mode,
   onSend,
   onDiscard,
   onAcceptAndRecordAnother,
+  onBackToList,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const curMsRef = useRef(0);
@@ -479,13 +483,15 @@ export default function KinematicsReview({
               <PencilSquareIcon className="h-5 w-5" />
               Editar
             </button>
-            <button
-              onClick={() => onAcceptAndRecordAnother(workingSeries)}
-              className="flex items-center gap-1 text-sm text-white/70 active:opacity-70"
-            >
-              <CameraIcon className="h-5 w-5" />
-              Cámara
-            </button>
+            {mode === 'new' && (
+              <button
+                onClick={() => onAcceptAndRecordAnother(workingSeries)}
+                className="flex items-center gap-1 text-sm text-white/70 active:opacity-70"
+              >
+                <CameraIcon className="h-5 w-5" />
+                Cámara
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -688,10 +694,10 @@ export default function KinematicsReview({
         ) : (
           <>
             <button
-              onClick={onDiscard}
+              onClick={mode === 'saved' ? () => onBackToList?.(workingSeries) : onDiscard}
               className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
             >
-              Descartar
+              {mode === 'saved' ? 'Volver' : 'Descartar'}
             </button>
             <button
               onClick={() => onSend(workingSeries)}

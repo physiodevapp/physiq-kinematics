@@ -13,3 +13,11 @@ export interface KinematicsPayload {
   joints: string[];
   series: KinematicsSeries;
 }
+
+export interface KinematicsReviewDraft {
+  id: number;
+  startedAt: number;
+  series: KinematicsSeries;
+  duration: number;
+  joints: string[];
+}
