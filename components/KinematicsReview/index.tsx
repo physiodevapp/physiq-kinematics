@@ -281,15 +281,9 @@ export default function KinematicsReview({
     initialDist: number;
     initialStart: number;
     initialEnd: number;
-    centerMs: number;
+    initMidMs: number;
   } | null>(null);
   const lastTapRef = useRef(0);
-
-  // Pan: track initial finger position so the grabbed point stays under the finger
-  const panStartXRef = useRef(0);
-  const panStartMsRef = useRef(0);
-  const panSpanRef = useRef(0);
-  const isPanningRef = useRef(false);
 
   const [workingSeries, setWorkingSeries] = useState<KinematicsSeries>(() => series);
   const workingSeriesRef = useRef<KinematicsSeries>(series);
@@ -581,7 +575,7 @@ export default function KinematicsReview({
             activePointersRef.current.set(e.pointerId, e.clientX);
 
             if (activePointersRef.current.size === 2) {
-              // Second finger down — start pinch, cancel any single-finger action
+              // Second finger down — start 2-finger pan+zoom, cancel any single-finger action
               editAnchorRef.current = null;
               draggingRef.current = false;
               const pointers = [...activePointersRef.current.values()];
@@ -591,7 +585,7 @@ export default function KinematicsReview({
                 initialDist: dist,
                 initialStart: viewRef.current.start,
                 initialEnd: viewRef.current.end,
-                centerMs: chartTimeFromClientX(midX),
+                initMidMs: chartTimeFromClientX(midX),
               };
               return;
             }
@@ -606,7 +600,7 @@ export default function KinematicsReview({
             }
             lastTapRef.current = now;
 
-            // Single finger
+            // Single finger: data interaction (scrub or range-select)
             if (editMode) {
               const t = chartTimeFromClientX(e.clientX);
               editAnchorRef.current = t;
@@ -615,11 +609,6 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               draggingRef.current = true;
-              isPanningRef.current = false;
-              panStartXRef.current = e.clientX;
-              panStartMsRef.current = chartTimeFromClientX(e.clientX);
-              panSpanRef.current = viewRef.current.end - viewRef.current.start;
-              // Set cursor immediately on touch so a tap updates it
               curMsRef.current = chartTimeFromClientX(e.clientX);
               needsRepaintRef.current = true;
             }
@@ -627,16 +616,21 @@ export default function KinematicsReview({
           onPointerMove={(e) => {
             activePointersRef.current.set(e.pointerId, e.clientX);
 
-            // Pinch zoom
+            // 2-finger: simultaneous pan + zoom
             if (pinchRef.current && activePointersRef.current.size === 2) {
+              const cv = canvasRef.current;
+              if (!cv) return;
+              const rect = cv.getBoundingClientRect();
+              const plotW = rect.width - PAD.left - PAD.right;
               const pointers = [...activePointersRef.current.values()];
-              const newDist = Math.abs(pointers[1] - pointers[0]);
-              const { initialDist, initialStart, initialEnd, centerMs } = pinchRef.current;
+              const currentDist = Math.abs(pointers[1] - pointers[0]);
+              const currentMidX = (pointers[0] + pointers[1]) / 2;
+              const { initialDist, initialStart, initialEnd, initMidMs } = pinchRef.current;
               const initialSpan = initialEnd - initialStart;
-              const zoomFactor = newDist / initialDist;
+              const zoomFactor = currentDist / initialDist;
               const newSpan = Math.max(500, Math.min(duration, initialSpan / zoomFactor));
-              const frac = (centerMs - initialStart) / initialSpan;
-              let newStart = centerMs - frac * newSpan;
+              const currentFrac = (currentMidX - rect.left - PAD.left) / plotW;
+              let newStart = initMidMs - currentFrac * newSpan;
               let newEnd = newStart + newSpan;
               if (newStart < 0) { newStart = 0; newEnd = Math.min(duration, newSpan); }
               if (newEnd > duration) { newEnd = duration; newStart = Math.max(0, duration - newSpan); }
@@ -655,27 +649,8 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               if (!draggingRef.current) return;
-              const dx = e.clientX - panStartXRef.current;
-              const isZoomed = panSpanRef.current < duration;
-              if (isZoomed && Math.abs(dx) > 5) {
-                // Pan: keep the grabbed ms fixed under the finger
-                isPanningRef.current = true;
-                const cv = canvasRef.current;
-                if (!cv) return;
-                const rect = cv.getBoundingClientRect();
-                const plotW = rect.width - PAD.left - PAD.right;
-                const frac = (e.clientX - rect.left - PAD.left) / plotW;
-                const span = panSpanRef.current;
-                let newStart = panStartMsRef.current - frac * span;
-                let newEnd = newStart + span;
-                if (newStart < 0) { newStart = 0; newEnd = span; }
-                if (newEnd > duration) { newEnd = duration; newStart = duration - span; }
-                viewRef.current = { start: newStart, end: newEnd };
-                needsRepaintRef.current = true;
-              } else if (!isPanningRef.current) {
-                curMsRef.current = chartTimeFromClientX(e.clientX);
-                needsRepaintRef.current = true;
-              }
+              curMsRef.current = chartTimeFromClientX(e.clientX);
+              needsRepaintRef.current = true;
             }
           }}
           onPointerUp={(e) => {
@@ -693,7 +668,6 @@ export default function KinematicsReview({
               }
               editAnchorRef.current = null;
             } else {
-              isPanningRef.current = false;
               draggingRef.current = false;
             }
           }}
@@ -702,7 +676,6 @@ export default function KinematicsReview({
             pinchRef.current = null;
             editAnchorRef.current = null;
             draggingRef.current = false;
-            isPanningRef.current = false;
           }}
         />
 
