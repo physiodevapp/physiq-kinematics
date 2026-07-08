@@ -67,6 +67,7 @@ function paintChart(
   series: KinematicsSeries,
   dur: number,
   curMs: number,
+  yMin: number,
   yMax: number,
   selRange: { start: number; end: number } | null | undefined,
   viewStart: number,
@@ -81,13 +82,14 @@ function paintChart(
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
   const viewSpan = viewEnd - viewStart;
+  const ySpan = yMax - yMin;
   const tx = (ms: number) => PAD.left + ((ms - viewStart) / viewSpan) * plotW;
-  const ay = (a: number) => PAD.top + plotH * (1 - Math.min(Math.max(a, 0), yMax) / yMax);
+  const ay = (a: number) => PAD.top + plotH * (1 - (Math.min(Math.max(a, yMin), yMax) - yMin) / ySpan);
 
   ctx.font = "9px 'DM Mono', monospace";
 
   // Y grid lines + labels
-  const gridA = yMax === 90 ? [45] : yMax === 135 ? [45, 90] : [45, 90, 135];
+  const gridA = [45, 90, 135].filter(v => v > yMin && v < yMax);
   for (const deg of gridA) {
     const y = ay(deg);
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
@@ -102,8 +104,8 @@ function paintChart(
   }
   ctx.fillStyle = "rgba(255,255,255,0.75)";
   ctx.textAlign = "right";
-  ctx.fillText("0°", PAD.left - 4, PAD.top + plotH + 4);
-  ctx.fillText(`${yMax}°`, PAD.left - 4, PAD.top + 4);
+  ctx.fillText(`${Math.round(yMin)}°`, PAD.left - 4, PAD.top + plotH + 4);
+  ctx.fillText(`${Math.round(yMax)}°`, PAD.left - 4, PAD.top + 4);
 
   // X axis time labels + light grid (adaptive to visible span)
   const visibleSec = viewSpan / 1000;
@@ -260,7 +262,7 @@ function paintChart(
     }
   }
 
-  // Zoom scrollbar indicator — thin bar at bottom, only when zoomed in
+  // X zoom scrollbar indicator — thin bar at bottom, only when zoomed in
   if (viewStart > 0 || viewEnd < dur) {
     const barY = H - 2;
     ctx.fillStyle = "rgba(255,255,255,0.1)";
@@ -269,6 +271,17 @@ function paintChart(
     const ex = PAD.left + (viewEnd / dur) * plotW;
     ctx.fillStyle = "rgba(93,173,236,0.7)";
     ctx.fillRect(sx, barY, ex - sx, 2);
+  }
+
+  // Y pan scrollbar indicator — thin bar on left edge, only when Y view is panned
+  if (yMin > 0 || yMax < 180) {
+    const barX = 1;
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.fillRect(barX, PAD.top, 2, plotH);
+    const sy = PAD.top + (1 - yMax / 180) * plotH;
+    const ey = PAD.top + (1 - yMin / 180) * plotH;
+    ctx.fillStyle = "rgba(93,173,236,0.7)";
+    ctx.fillRect(barX, sy, 2, ey - sy);
   }
 
   ctx.restore();
@@ -306,12 +319,16 @@ export default function KinematicsReview({
 
   // Zoom: view window in ms, multi-pointer tracking, pinch state, double-tap
   const viewRef = useRef({ start: 0, end: duration });
-  const activePointersRef = useRef<Map<number, number>>(new Map());
+  const yViewRef = useRef({ yMin: 0, yMax: 180 });
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{
     initialDist: number;
     initialStart: number;
     initialEnd: number;
     initMidMs: number;
+    initMidY: number;
+    initYMin: number;
+    initYMax: number;
   } | null>(null);
   const lastTapRef = useRef(0);
 
@@ -413,12 +430,19 @@ export default function KinematicsReview({
     needsRepaintRef.current = true;
   }, [duration]);
 
+  // Reset Y view when the computed Y ceiling changes (different joints selected)
+  useEffect(() => {
+    yViewRef.current = { yMin: 0, yMax: yMax };
+    needsRepaintRef.current = true;
+  }, [yMax]);
+
   // rAF loop: resize canvas and repaint when cursor, series, or view changes
   useEffect(() => {
     let rafId: number;
     let lastCurMs = -1;
     let lastW = 0, lastH = 0;
     let lastViewStart = -1, lastViewEnd = -1;
+    let lastYMin = -1, lastYMax = -1;
 
     const tick = () => {
       rafId = requestAnimationFrame(tick);
@@ -435,20 +459,23 @@ export default function KinematicsReview({
       }
 
       const { start: vStart, end: vEnd } = viewRef.current;
+      const { yMin: vYMin, yMax: vYMax } = yViewRef.current;
       if (
         needsRepaintRef.current ||
         Math.abs(curMsRef.current - lastCurMs) > 20 ||
         W !== lastW ||
         H !== lastH ||
         vStart !== lastViewStart ||
-        vEnd !== lastViewEnd
+        vEnd !== lastViewEnd ||
+        vYMin !== lastYMin ||
+        vYMax !== lastYMax
       ) {
         const ctx = cv.getContext("2d");
         if (ctx) {
           paintChart(
             ctx, W, H, dpr, joints,
             workingSeriesRef.current,
-            duration, curMsRef.current, yMax,
+            duration, curMsRef.current, vYMin, vYMax,
             selRangeRef.current,
             vStart, vEnd,
           );
@@ -458,13 +485,15 @@ export default function KinematicsReview({
         lastH = H;
         lastViewStart = vStart;
         lastViewEnd = vEnd;
+        lastYMin = vYMin;
+        lastYMax = vYMax;
         needsRepaintRef.current = false;
       }
     };
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [joints, duration, yMax]);
+  }, [joints, duration]);
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
   const handleGoHome = useCallback(() => {
@@ -631,20 +660,24 @@ export default function KinematicsReview({
           style={editMode ? { cursor: "crosshair" } : undefined}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
-            activePointersRef.current.set(e.pointerId, e.clientX);
+            activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
             if (activePointersRef.current.size === 2) {
               // Second finger down — start 2-finger pan+zoom, cancel any single-finger action
               editAnchorRef.current = null;
               draggingRef.current = false;
               const pointers = [...activePointersRef.current.values()];
-              const dist = Math.abs(pointers[1] - pointers[0]);
-              const midX = (pointers[0] + pointers[1]) / 2;
+              const dist = Math.abs(pointers[1].x - pointers[0].x);
+              const midX = (pointers[0].x + pointers[1].x) / 2;
+              const midY = (pointers[0].y + pointers[1].y) / 2;
               pinchRef.current = {
                 initialDist: dist,
                 initialStart: viewRef.current.start,
                 initialEnd: viewRef.current.end,
                 initMidMs: chartTimeFromClientX(midX),
+                initMidY: midY,
+                initYMin: yViewRef.current.yMin,
+                initYMax: yViewRef.current.yMax,
               };
               return;
             }
@@ -673,18 +706,22 @@ export default function KinematicsReview({
             }
           }}
           onPointerMove={(e) => {
-            activePointersRef.current.set(e.pointerId, e.clientX);
+            activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-            // 2-finger: simultaneous pan + zoom
+            // 2-finger: simultaneous X pan+zoom and Y pan
             if (pinchRef.current && activePointersRef.current.size === 2) {
               const cv = canvasRef.current;
               if (!cv) return;
               const rect = cv.getBoundingClientRect();
               const plotW = rect.width - PAD.left - PAD.right;
+              const plotH = rect.height - PAD.top - PAD.bottom;
               const pointers = [...activePointersRef.current.values()];
-              const currentDist = Math.abs(pointers[1] - pointers[0]);
-              const currentMidX = (pointers[0] + pointers[1]) / 2;
-              const { initialDist, initialStart, initialEnd, initMidMs } = pinchRef.current;
+              const currentDist = Math.abs(pointers[1].x - pointers[0].x);
+              const currentMidX = (pointers[0].x + pointers[1].x) / 2;
+              const currentMidY = (pointers[0].y + pointers[1].y) / 2;
+              const { initialDist, initialStart, initialEnd, initMidMs, initMidY, initYMin, initYMax } = pinchRef.current;
+
+              // X axis: pinch-zoom + pan
               const initialSpan = initialEnd - initialStart;
               const zoomFactor = currentDist / initialDist;
               const newSpan = Math.max(500, Math.min(duration, initialSpan / zoomFactor));
@@ -694,6 +731,16 @@ export default function KinematicsReview({
               if (newStart < 0) { newStart = 0; newEnd = Math.min(duration, newSpan); }
               if (newEnd > duration) { newEnd = duration; newStart = Math.max(0, duration - newSpan); }
               viewRef.current = { start: newStart, end: newEnd };
+
+              // Y axis: vertical pan — moving fingers up shifts range up (shows higher angles)
+              const ySpan = initYMax - initYMin;
+              const yDelta = (initMidY - currentMidY) * (ySpan / plotH);
+              let newYMin = initYMin + yDelta;
+              let newYMax = initYMax + yDelta;
+              if (newYMin < 0) { newYMin = 0; newYMax = Math.min(180, ySpan); }
+              if (newYMax > 180) { newYMax = 180; newYMin = Math.max(0, 180 - ySpan); }
+              yViewRef.current = { yMin: newYMin, yMax: newYMax };
+
               needsRepaintRef.current = true;
               return;
             }
