@@ -56,6 +56,8 @@ export default function KinematicsRecordingsList({
 
   const [showTranslateBanner, setShowTranslateBanner] = useState(false);
   const translateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const isInIframe =
     typeof window !== "undefined" && window.self !== window.top;
@@ -101,6 +103,15 @@ export default function KinematicsRecordingsList({
     setShowSessionPanel(true);
   };
 
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    observer.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => observer.disconnect();
+  }, []);
+
   const handleTranslate = () => {
     setShowTranslateBanner(true);
     if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
@@ -110,6 +121,11 @@ export default function KinematicsRecordingsList({
     );
   };
 
+  const hideTranslateBanner = () => {
+    if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    setShowTranslateBanner(false);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col"
@@ -117,7 +133,8 @@ export default function KinematicsRecordingsList({
     >
       {/* ── Satellite header ── */}
       <div
-        className="shrink-0 flex items-center justify-between px-6"
+        ref={headerRef}
+        className="shrink-0 flex items-center justify-between px-6 relative z-10"
         style={{ height: 64, borderBottom: "1px solid #232d45" }}
       >
         <h2 className="font-display text-white text-base inline-flex items-center gap-1.5">
@@ -191,21 +208,18 @@ export default function KinematicsRecordingsList({
         </div>
       </div>
 
-      {/* ── Translate banner ── */}
-      <div
-        className="shrink-0"
-        style={{
-          height: showTranslateBanner ? 40 : 0,
-          overflow: "hidden",
-          transition: "height 0.25s ease",
-        }}
-      >
+      {/* ── Translate banner — slides from behind header ── */}
+      {headerHeight > 0 && (
         <div
-          className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10"
+          className="absolute left-0 right-0 flex items-center gap-2 px-4 border-b border-white/10"
           style={{
+            top: headerHeight,
+            zIndex: 5,
+            height: 40,
             background: "#111620",
+            transform: showTranslateBanner ? "translateY(0)" : "translateY(-100%)",
             opacity: showTranslateBanner ? 1 : 0,
-            transition: "opacity 0.25s ease",
+            transition: "transform 0.25s ease, opacity 0.25s ease",
           }}
         >
           <span className="text-sm">🌐</span>
@@ -213,13 +227,22 @@ export default function KinematicsRecordingsList({
             Long-press or right-click → Translate to English
           </span>
           <button
-            onClick={() => setShowTranslateBanner(false)}
+            onClick={hideTranslateBanner}
             className="text-white/40 text-base leading-none active:opacity-70"
           >
             ✕
           </button>
         </div>
-      </div>
+      )}
+
+      {/* Spacer — pushes sub-header down in sync with the translate banner */}
+      <div
+        className="shrink-0"
+        style={{
+          height: showTranslateBanner ? 40 : 0,
+          transition: "height 0.25s ease",
+        }}
+      />
 
       {/* ── Sub-header: back + tab switcher ── */}
       <div
