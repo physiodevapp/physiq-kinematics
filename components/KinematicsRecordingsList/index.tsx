@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   GlobeAltIcon,
-  TrashIcon,
   UserCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -222,25 +221,30 @@ export default function KinematicsRecordingsList({
       >
         <button
           onClick={onClose}
-          className="flex items-center gap-1 text-sm active:opacity-70 transition-opacity"
-          style={{ color: "rgba(255,255,255,0.6)" }}
+          className="flex items-center gap-1.5 text-sm active:opacity-70 transition-opacity"
+          style={{
+            color: "rgba(255,255,255,0.7)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: 9999,
+            padding: "6px 14px",
+          }}
         >
-          <span className="text-base leading-none">‹</span>
+          <span className="leading-none">←</span>
           <span>Cámara</span>
         </button>
 
-        <div
-          className="flex items-center gap-1 rounded-lg p-1"
-          style={{ background: "rgba(255,255,255,0.06)" }}
-        >
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setTab("draft")}
-            className="text-xs px-3 py-1 rounded-md transition-colors font-medium"
-            style={
-              tab === "draft"
-                ? { background: "#5dadec", color: "#fff" }
-                : { color: "rgba(255,255,255,0.4)" }
-            }
+            className="text-xs transition-colors font-medium"
+            style={{
+              padding: "6px 14px",
+              borderRadius: 9999,
+              ...(tab === "draft"
+                ? { background: "#5dadec", color: "#fff", border: "1px solid #5dadec" }
+                : { color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.2)", background: "transparent" }),
+            }}
           >
             Borradores
             {recordings.length > 0 && (
@@ -249,14 +253,16 @@ export default function KinematicsRecordingsList({
           </button>
           <button
             onClick={() => setTab("sent")}
-            className="text-xs px-3 py-1 rounded-md transition-colors font-medium"
-            style={
-              tab === "sent"
-                ? { background: "#5dadec", color: "#fff" }
-                : { color: "rgba(255,255,255,0.4)" }
-            }
+            className="text-xs transition-colors font-medium"
+            style={{
+              padding: "6px 14px",
+              borderRadius: 9999,
+              ...(tab === "sent"
+                ? { background: "#5dadec", color: "#fff", border: "1px solid #5dadec" }
+                : { color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.2)", background: "transparent" }),
+            }}
           >
-            Enviadas
+            Guardadas
             {sentRecordings.length > 0 && (
               <span className="ml-1 opacity-70">({sentRecordings.length})</span>
             )}
@@ -330,7 +336,7 @@ export default function KinematicsRecordingsList({
                       className="active:opacity-70 transition-opacity"
                       style={{ color: "#5a6e8a" }}
                     >
-                      <TrashIcon className="h-3.5 w-3.5" />
+                      <XMarkIcon className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -342,7 +348,7 @@ export default function KinematicsRecordingsList({
             className="text-center py-12 text-sm"
             style={{ color: "rgba(255,255,255,0.3)" }}
           >
-            No hay mediciones enviadas
+            No hay grabaciones guardadas
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
@@ -372,7 +378,7 @@ export default function KinematicsRecordingsList({
                   className="font-mono-dm text-[10px] uppercase tracking-wide"
                   style={{ color: "#5a6e8a" }}
                 >
-                  Enviada
+                  Guardada
                 </span>
                 <div
                   className="font-mono-dm text-xs leading-snug flex-1 mt-0.5"
@@ -401,7 +407,7 @@ export default function KinematicsRecordingsList({
                       className="active:opacity-70 transition-opacity"
                       style={{ color: "#5a6e8a" }}
                     >
-                      <TrashIcon className="h-3.5 w-3.5" />
+                      <XMarkIcon className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
@@ -432,7 +438,7 @@ export default function KinematicsRecordingsList({
             className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
             style={{ background: "#5dadec" }}
           >
-            Enviar al informe
+            Guardar
           </button>
         )}
       </div>
