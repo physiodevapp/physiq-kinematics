@@ -6,7 +6,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsPayload } from "@/interfaces/kinematics";
-import { formatJointName } from "@/utils/joint";
+import { groupJointNames } from "@/utils/joint";
 import { clearSession, readSession, writeSession } from "@/utils/session";
 
 interface Recording {
@@ -35,12 +35,6 @@ function fmtDuration(ms: number): string {
   return `${m}:${r}`;
 }
 
-function fmtTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("es-ES", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default function KinematicsRecordingsList({
   recordings,
@@ -303,7 +297,7 @@ export default function KinematicsRecordingsList({
               No hay borradores guardados
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 gap-2.5">
               {recordings.map((r, i) => (
                 <div
                   key={r.id}
@@ -332,24 +326,17 @@ export default function KinematicsRecordingsList({
                   >
                     Borrador
                   </span>
-                  <div
-                    className="font-mono-dm text-xs leading-snug flex-1 mt-0.5"
-                    style={{ color: "#5dadec" }}
-                  >
-                    {r.joints.map((j) => (
-                      <div key={j}>{formatJointName(j)}</div>
-                    ))}
-                    <div className="mt-0.5" style={{ color: "#5a6e8a" }}>
+                  <div className="flex-1 mt-0.5 flex flex-col gap-0.5">
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: "#5dadec" }}>
+                      {groupJointNames(r.joints).map((label) => (
+                        <span key={label} className="font-mono-dm text-xs">{label}</span>
+                      ))}
+                    </div>
+                    <div className="font-mono-dm text-xs mt-0.5" style={{ color: "#5a6e8a" }}>
                       {fmtDuration(r.duration)}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mt-auto pt-1">
-                    <span
-                      className="font-mono-dm text-[10px]"
-                      style={{ color: "#5a6e8a" }}
-                    >
-                      {fmtTime(r.startedAt)}
-                    </span>
+                  <div className="flex items-center justify-end mt-auto pt-1">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -402,24 +389,17 @@ export default function KinematicsRecordingsList({
                 >
                   Guardada
                 </span>
-                <div
-                  className="font-mono-dm text-xs leading-snug flex-1 mt-0.5"
-                  style={{ color: "#5dadec" }}
-                >
-                  {r.joints.map((j) => (
-                    <div key={j}>{formatJointName(j)}</div>
-                  ))}
-                  <div className="mt-0.5" style={{ color: "#5a6e8a" }}>
+                <div className="flex-1 mt-0.5 flex flex-col gap-0.5">
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: "#5dadec" }}>
+                    {groupJointNames(r.joints).map((label) => (
+                      <span key={label} className="font-mono-dm text-xs">{label}</span>
+                    ))}
+                  </div>
+                  <div className="font-mono-dm text-xs mt-0.5" style={{ color: "#5a6e8a" }}>
                     {fmtDuration(r.duration)}
                   </div>
                 </div>
-                <div className="flex items-center justify-between mt-auto pt-1">
-                  <span
-                    className="font-mono-dm text-[10px]"
-                    style={{ color: "#5a6e8a" }}
-                  >
-                    {fmtTime(r.startedAt)}
-                  </span>
+                <div className="flex items-center justify-end mt-auto pt-1">
                   {onDeleteSent && (
                     <button
                       onClick={(e) => {

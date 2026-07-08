@@ -68,3 +68,31 @@ export const formatJointName = (jointName: string): string => {
 
   return `${sideShort} ${capitalizedPart}`;
 };
+
+export function groupJointNames(joints: string[]): string[] {
+  const jointSet = new Set(joints);
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const joint of joints) {
+    const underscoreIdx = joint.indexOf("_");
+    const side = joint.slice(0, underscoreIdx);
+    const part = joint.slice(underscoreIdx + 1);
+
+    if (seen.has(part)) continue;
+    seen.add(part);
+
+    const opposite = side === "left" ? "right" : "left";
+    const oppositeName = `${opposite}_${part}`;
+    const capitalizedPart = part.charAt(0).toUpperCase() + part.slice(1);
+
+    if (jointSet.has(oppositeName)) {
+      result.push(`L/R ${capitalizedPart}`);
+    } else {
+      const sideShort = side === "left" ? "L" : "R";
+      result.push(`${sideShort} ${capitalizedPart}`);
+    }
+  }
+
+  return result;
+}

@@ -872,7 +872,7 @@ export default function KinematicsReview({
               className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
               style={{ background: "#5dadec" }}
             >
-              Enviar al informe
+              Guardar
             </button>
           </>
         )}
