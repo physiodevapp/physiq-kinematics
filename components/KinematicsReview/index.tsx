@@ -592,7 +592,8 @@ export default function KinematicsReview({
             </button>
             <button
               onClick={handleTranslate}
-              className="text-white/50 active:opacity-70 transition-opacity"
+              className="active:opacity-70 transition-opacity"
+              style={{ color: "#5a6e8a" }}
               aria-label="View in English"
               title="Long-press or right-click → Translate to English"
             >
