@@ -13,7 +13,6 @@ import { readSession, writeSession } from "@/utils/session";
 import { jointOptions, formatJointName } from "@/utils/joint";
 import {
   CameraIcon,
-  ChevronDownIcon,
   UserIcon,
   Cog6ToothIcon,
   ArrowPathIcon,
@@ -66,7 +65,6 @@ export default function Home() {
   const [showGraph, setShowGraph] = useState(false);
 
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
-  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const shouldResumeRef = useRef(false);
 
   const jointDataRef = useRef<JointDataMap>({});
@@ -630,33 +628,15 @@ export default function Home() {
           </button>
         </div>
 
-        <button
-          onClick={() => setIsToolbarExpanded((prev) => !prev)}
-          className="flex justify-center items-center"
-        >
-          <ChevronDownIcon
-            className={`h-4 w-4 text-white/70 transition-transform duration-200 ${isToolbarExpanded ? "rotate-180" : ""}`}
-          />
-        </button>
+        <PresentationChartLineIcon
+          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
+          onClick={handleToggleGraph}
+        />
 
-        <div
-          className="flex flex-col gap-6 overflow-hidden transition-all duration-200"
-          style={{
-            maxHeight: isToolbarExpanded ? "300px" : "0px",
-            opacity: isToolbarExpanded ? 1 : 0,
-            marginTop: isToolbarExpanded ? undefined : "-1.5rem",
-          }}
-        >
-          <PresentationChartLineIcon
-            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
-            onClick={handleToggleGraph}
-          />
-
-          <Cog6ToothIcon
-            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
-            onClick={handleTogglePoseSettings}
-          />
-        </div>
+        <Cog6ToothIcon
+          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
+          onClick={handleTogglePoseSettings}
+        />
 
         {/* Pose orientation picker */}
         {showPoseOrientationModal && (
