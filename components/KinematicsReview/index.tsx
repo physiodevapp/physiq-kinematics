@@ -595,7 +595,7 @@ export default function KinematicsReview({
         style={{
           height: showTranslateBanner ? 40 : 0,
           overflow: "hidden",
-          transition: showTranslateBanner ? "height 0.25s ease" : "height 0.25s ease 0.25s",
+          transition: "height 0.25s ease",
         }}
       >
         <div
