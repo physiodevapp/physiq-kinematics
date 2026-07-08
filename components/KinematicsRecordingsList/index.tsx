@@ -332,21 +332,21 @@ export default function KinematicsRecordingsList({
                         <span key={label} className="font-mono-dm text-xs">{label}</span>
                       ))}
                     </div>
-                    <div className="font-mono-dm text-xs mt-0.5" style={{ color: "#5a6e8a" }}>
-                      {fmtDuration(r.duration)}
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-mono-dm text-xs" style={{ color: "#5a6e8a" }}>
+                        {fmtDuration(r.duration)}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(r.id);
+                        }}
+                        className="active:opacity-70 transition-opacity"
+                        style={{ color: "#5a6e8a" }}
+                      >
+                        <XMarkIcon className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-end mt-auto pt-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(r.id);
-                      }}
-                      className="active:opacity-70 transition-opacity"
-                      style={{ color: "#5a6e8a" }}
-                    >
-                      <XMarkIcon className="h-3.5 w-3.5" />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -395,23 +395,23 @@ export default function KinematicsRecordingsList({
                       <span key={label} className="font-mono-dm text-xs">{label}</span>
                     ))}
                   </div>
-                  <div className="font-mono-dm text-xs mt-0.5" style={{ color: "#5a6e8a" }}>
-                    {fmtDuration(r.duration)}
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="font-mono-dm text-xs" style={{ color: "#5a6e8a" }}>
+                      {fmtDuration(r.duration)}
+                    </span>
+                    {onDeleteSent && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSent(i);
+                        }}
+                        className="active:opacity-70 transition-opacity"
+                        style={{ color: "#5a6e8a" }}
+                      >
+                        <XMarkIcon className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
-                </div>
-                <div className="flex items-center justify-end mt-auto pt-1">
-                  {onDeleteSent && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteSent(i);
-                      }}
-                      className="active:opacity-70 transition-opacity"
-                      style={{ color: "#5a6e8a" }}
-                    >
-                      <XMarkIcon className="h-3.5 w-3.5" />
-                    </button>
-                  )}
                 </div>
               </div>
             ))}
@@ -426,11 +426,8 @@ export default function KinematicsRecordingsList({
       >
         <button
           onClick={onClose}
-          className="flex-1 py-3 rounded-md text-sm active:bg-white/5 transition-colors"
-          style={{
-            color: "rgba(255,255,255,0.6)",
-            border: "1px solid rgba(255,255,255,0.2)",
-          }}
+          className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 transition-opacity"
+          style={{ background: "#5dadec" }}
         >
           Nueva grabación
         </button>
