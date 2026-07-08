@@ -189,12 +189,13 @@ function paintChart(
     ctx.setLineDash([]);
 
     // Dots + labels at cursor position
-    const PILL_PX = 4;   // horizontal padding per side
-    const PILL_PY = 3;   // vertical padding per side
-    const PILL_H = 15;   // single-line pill height (9px font + 2×3 padding)
-    const MIN_GAP = 17;  // min px between consecutive label baselines (2px gap between pills)
+    const LINE_H = 11;
+    const PILL_PX = 4;
+    const PILL_PY = 3;
+    const PILL_H = LINE_H + 9 + 2 + PILL_PY * 2; // two-line pill, matches AngleGraph
+    const MIN_GAP = PILL_H + 2;
 
-    type CL = { color: string; text: string; rawY: number; labelY: number };
+    type CL = { color: string; name: string; angleStr: string; rawY: number; labelY: number };
     const cursorLabels: CL[] = [];
     for (const joint of joints) {
       const e = series[joint];
@@ -208,7 +209,8 @@ function paintChart(
       ctx.fill();
       cursorLabels.push({
         color: getColorsForJoint(joint).borderColor,
-        text: `${formatJointName(joint)} ${Math.round(angle)}°`,
+        name: formatJointName(joint),
+        angleStr: `${Math.round(angle)}°`,
         rawY: y,
         labelY: y,
       });
@@ -228,10 +230,9 @@ function paintChart(
     ctx.textAlign = onRight ? "left" : "right";
     const lx = onRight ? cx + 8 : cx - 8;
 
-    for (const { color, text, rawY, labelY } of cursorLabels) {
-      const textW = ctx.measureText(text).width;
+    for (const { color, name, angleStr, rawY, labelY } of cursorLabels) {
+      const maxW = Math.max(ctx.measureText(name).width, ctx.measureText(angleStr).width);
 
-      // Leader line only when collision avoidance displaced the pill from the dot
       if (Math.abs(labelY - rawY) > 3) {
         ctx.save();
         ctx.strokeStyle = color;
@@ -245,15 +246,17 @@ function paintChart(
         ctx.restore();
       }
 
-      const pillX = onRight ? lx - PILL_PX : lx - textW - PILL_PX;
+      const pillX = onRight ? lx - PILL_PX : lx - maxW - PILL_PX;
       const pillY = labelY - 7 - PILL_PY;
       ctx.fillStyle = "rgba(0,0,0,0.72)";
       ctx.beginPath();
-      ctx.roundRect(pillX, pillY, textW + PILL_PX * 2, PILL_H, 3);
+      ctx.roundRect(pillX, pillY, maxW + PILL_PX * 2, PILL_H, 3);
       ctx.fill();
 
       ctx.fillStyle = color;
-      ctx.fillText(text, lx, labelY);
+      ctx.fillText(name, lx, labelY);
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillText(angleStr, lx, labelY + LINE_H);
     }
   }
 
