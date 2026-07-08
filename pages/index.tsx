@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasKeypointName, JointDataMap } from "@/interfaces/pose";
-import type { KinematicsSeries, KinematicsReviewDraft } from "@/interfaces/kinematics";
+import type { KinematicsSeries, KinematicsPayload, KinematicsReviewDraft } from "@/interfaces/kinematics";
 import { VideoConstraints } from "@/interfaces/camera";
 import { useSettings } from "@/providers/Settings";
 import { OrthogonalReference } from "@/providers/Settings";
@@ -96,8 +96,11 @@ export default function Home() {
   };
   const [reviewData, setReviewData] = useState<ReviewData | null>(null);
   const [reviewSavedIndex, setReviewSavedIndex] = useState<number | null>(null);
+  const [reviewSavedSource, setReviewSavedSource] = useState<'draft' | 'sent' | null>(null);
   const [recordings, setRecordings] = useState<ReviewData[]>([]);
+  const [sentRecordings, setSentRecordings] = useState<KinematicsPayload[]>([]);
   const [showRecordingsList, setShowRecordingsList] = useState(false);
+  const [listDefaultTab, setListDefaultTab] = useState<'draft' | 'sent'>('draft');
   const idbLoadedRef = useRef(false);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
@@ -176,44 +179,90 @@ export default function Home() {
 
   const handleOpenRecording = (index: number) => {
     setReviewSavedIndex(index);
+    setReviewSavedSource('draft');
     setReviewData(recordings[index]);
     setShowRecordingsList(false);
   };
 
+  const handleOpenSentRecording = (index: number) => {
+    const r = sentRecordings[index];
+    setReviewSavedIndex(index);
+    setReviewSavedSource('sent');
+    setReviewData({
+      id: r.startedAt,
+      startedAt: r.startedAt,
+      series: r.series,
+      duration: r.duration,
+      joints: r.joints as CanvasKeypointName[],
+    });
+    setShowRecordingsList(false);
+  };
+
+  const handleOpenListFromReview = (correctedSeries: KinematicsSeries) => {
+    if (!reviewData) return;
+    if (reviewSavedIndex !== null) {
+      handleBackToList(correctedSeries);
+    } else {
+      setRecordings((prev) => [...prev, { ...reviewData, series: correctedSeries }]);
+      setReviewData(null);
+      setListDefaultTab('draft');
+      setShowRecordingsList(true);
+    }
+  };
+
   const handleBackToList = (correctedSeries: KinematicsSeries) => {
     if (reviewSavedIndex === null) return;
-    setRecordings((prev) =>
-      prev.map((r, i) => (i === reviewSavedIndex ? { ...r, series: correctedSeries } : r))
-    );
+    if (reviewSavedSource === 'draft') {
+      setRecordings((prev) =>
+        prev.map((r, i) => (i === reviewSavedIndex ? { ...r, series: correctedSeries } : r))
+      );
+      setListDefaultTab('draft');
+    } else if (reviewSavedSource === 'sent') {
+      const updated = sentRecordings.map((r, i) =>
+        i === reviewSavedIndex ? { ...r, series: correctedSeries } : r
+      );
+      setSentRecordings(updated);
+      writeSession({ kinematics: updated });
+      const ch = new BroadcastChannel("physiq-session");
+      ch.postMessage({ type: "SESSION_KINEMATICS", kinematics: updated });
+      ch.close();
+      setListDefaultTab('sent');
+    }
     setReviewData(null);
     setReviewSavedIndex(null);
+    setReviewSavedSource(null);
     setShowRecordingsList(true);
   };
 
   const handleSendFromReview = async (correctedSeries: KinematicsSeries) => {
     if (!reviewData) return;
-    let all: ReviewData[];
-    if (reviewSavedIndex !== null) {
-      all = recordings.map((r, i) =>
+    let updatedDrafts = recordings;
+    let updatedSent = sentRecordings;
+    if (reviewSavedSource === 'draft' && reviewSavedIndex !== null) {
+      updatedDrafts = recordings.map((r, i) =>
+        i === reviewSavedIndex ? { ...r, series: correctedSeries } : r
+      );
+    } else if (reviewSavedSource === 'sent' && reviewSavedIndex !== null) {
+      updatedSent = sentRecordings.map((r, i) =>
         i === reviewSavedIndex ? { ...r, series: correctedSeries } : r
       );
     } else {
-      all = [...recordings, { ...reviewData, series: correctedSeries }];
+      updatedDrafts = [...recordings, { ...reviewData, series: correctedSeries }];
     }
-    if (!all.length) return;
-    const kinematics = all.map(({ startedAt, duration, joints, series }) => ({
-      startedAt,
-      duration,
-      joints,
-      series,
+    const draftPayloads = updatedDrafts.map(({ startedAt, duration, joints, series }) => ({
+      startedAt, duration, joints, series,
     }));
+    const kinematics = [...updatedSent, ...draftPayloads];
+    if (!kinematics.length) return;
     await writeSession({ kinematics });
     const ch = new BroadcastChannel("physiq-session");
     ch.postMessage({ type: "SESSION_KINEMATICS", kinematics });
     ch.close();
+    setSentRecordings(kinematics);
     setRecordings([]);
     setReviewData(null);
     setReviewSavedIndex(null);
+    setReviewSavedSource(null);
     setShowRecordingsList(false);
     if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
     setShowSavedToast(false);
@@ -223,20 +272,17 @@ export default function Home() {
   };
 
   const handleSendToReport = async () => {
-    const all = reviewData ? [...recordings, reviewData] : recordings;
-    if (!all.length) return;
-    const kinematics = all.map(({ startedAt, duration, joints, series }) => ({
-      startedAt,
-      duration,
-      joints,
-      series,
+    const draftPayloads = recordings.map(({ startedAt, duration, joints, series }) => ({
+      startedAt, duration, joints, series,
     }));
+    const kinematics = [...sentRecordings, ...draftPayloads];
+    if (!kinematics.length) return;
     await writeSession({ kinematics });
     const ch = new BroadcastChannel("physiq-session");
     ch.postMessage({ type: "SESSION_KINEMATICS", kinematics });
     ch.close();
+    setSentRecordings(kinematics);
     setRecordings([]);
-    setReviewData(null);
     setShowRecordingsList(false);
     if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
     setShowSavedToast(false);
@@ -354,12 +400,11 @@ export default function Home() {
     new Image().src = `${basePath}/human.png`;
   }, [basePath]);
 
-  // Restore saved draft recordings from IDB on mount
+  // Restore saved draft recordings and sent recordings from IDB on mount
   useEffect(() => {
     readSession().then((s) => {
-      if (s?.kinematicsDraft?.length) {
-        setRecordings(s.kinematicsDraft as ReviewData[]);
-      }
+      if (s?.kinematicsDraft?.length) setRecordings(s.kinematicsDraft as ReviewData[]);
+      if (s?.kinematics?.length) setSentRecordings(s.kinematics);
       idbLoadedRef.current = true;
     });
   }, []);
@@ -377,8 +422,10 @@ export default function Home() {
       if (e.data?.type === "SESSION_CLEAR") {
         idbLoadedRef.current = false;
         setRecordings([]);
+        setSentRecordings([]);
         setReviewData(null);
         setReviewSavedIndex(null);
+        setReviewSavedSource(null);
       }
     };
     return () => ch.close();
@@ -456,15 +503,18 @@ export default function Home() {
             </button>
           </>
         )}
-        {recordings.length > 0 && (
+        {(recordings.length > 0 || sentRecordings.length > 0) && (
           <>
             <span className="opacity-30 font-normal">|</span>
             <button
-              onClick={() => setShowRecordingsList(true)}
+              onClick={() => {
+                setListDefaultTab(recordings.length > 0 ? 'draft' : 'sent');
+                setShowRecordingsList(true);
+              }}
               className="flex items-center gap-1 active:opacity-70"
             >
               <FilmIcon className="h-4 w-4" />
-              <span className="font-mono text-sm">{recordings.length}</span>
+              <span className="font-mono text-sm">{recordings.length + sentRecordings.length}</span>
             </button>
           </>
         )}
@@ -682,19 +732,23 @@ export default function Home() {
           recordingNumber={reviewSavedIndex !== null ? reviewSavedIndex + 1 : recordings.length + 1}
           mode={reviewSavedIndex !== null ? 'saved' : 'new'}
           onSend={handleSendFromReview}
-          onDiscard={() => { setReviewData(null); setReviewSavedIndex(null); }}
+          onDiscard={() => { setReviewData(null); setReviewSavedIndex(null); setReviewSavedSource(null); }}
           onAcceptAndRecordAnother={handleAcceptAndRecordAnother}
           onBackToList={handleBackToList}
+          onOpenList={handleOpenListFromReview}
         />
       )}
 
       {showRecordingsList && (
         <KinematicsRecordingsList
           recordings={recordings}
+          sentRecordings={sentRecordings}
           onDelete={handleDeleteRecording}
           onOpen={handleOpenRecording}
+          onOpenSent={handleOpenSentRecording}
           onSend={handleSendToReport}
           onClose={() => setShowRecordingsList(false)}
+          defaultTab={listDefaultTab}
         />
       )}
     </main>

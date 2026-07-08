@@ -5,6 +5,7 @@ import {
   AdjustmentsHorizontalIcon,
   ArrowUturnLeftIcon,
   CameraIcon,
+  FilmIcon,
   GlobeAltIcon,
   PencilSquareIcon,
   UserCircleIcon,
@@ -223,6 +224,7 @@ interface Props {
   onDiscard: () => void;
   onAcceptAndRecordAnother: (series: KinematicsSeries) => void;
   onBackToList?: (series: KinematicsSeries) => void;
+  onOpenList?: (series: KinematicsSeries) => void;
 }
 
 export default function KinematicsReview({
@@ -235,6 +237,7 @@ export default function KinematicsReview({
   onDiscard,
   onAcceptAndRecordAnother,
   onBackToList,
+  onOpenList,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const curMsRef = useRef(0);
@@ -483,6 +486,15 @@ export default function KinematicsReview({
               <PencilSquareIcon className="h-5 w-5" />
               Editar
             </button>
+            {onOpenList && (
+              <button
+                onClick={() => onOpenList(workingSeries)}
+                className="flex items-center gap-1 text-sm text-white/70 active:opacity-70"
+              >
+                <FilmIcon className="h-5 w-5" />
+                Lista
+              </button>
+            )}
             {mode === 'new' && (
               <button
                 onClick={() => onAcceptAndRecordAnother(workingSeries)}
