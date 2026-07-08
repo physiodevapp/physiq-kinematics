@@ -719,8 +719,6 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               draggingRef.current = true;
-              curMsRef.current = chartTimeFromClientX(e.clientX);
-              needsRepaintRef.current = true;
             }
           }}
           onPointerMove={(e) => {
