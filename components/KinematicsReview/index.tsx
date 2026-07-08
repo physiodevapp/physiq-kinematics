@@ -226,23 +226,22 @@ function paintChart(
 
     const onRight = cx < PAD.left + plotW / 2;
     ctx.textAlign = onRight ? "left" : "right";
-    const lx = onRight ? cx + 8 : cx - 8;
+    const lx = onRight ? cx + 16 : cx - 16;
 
     for (const { color, text, rawY, labelY } of cursorLabels) {
       const textW = ctx.measureText(text).width;
 
-      if (Math.abs(labelY - rawY) > 3) {
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.45;
-        ctx.lineWidth = 0.75;
-        ctx.setLineDash([2, 3]);
-        ctx.beginPath();
-        ctx.moveTo(cx, rawY);
-        ctx.lineTo(onRight ? lx - PILL_PX : lx + PILL_PX, labelY);
-        ctx.stroke();
-        ctx.restore();
-      }
+      // Leader line always connects the curve dot to the pill edge
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 0.75;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(cx, rawY);
+      ctx.lineTo(onRight ? lx - PILL_PX : lx + PILL_PX, labelY);
+      ctx.stroke();
+      ctx.restore();
 
       const pillX = onRight ? lx - PILL_PX : lx - textW - PILL_PX;
       const pillY = labelY - 7 - PILL_PY;
