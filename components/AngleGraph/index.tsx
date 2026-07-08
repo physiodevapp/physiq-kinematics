@@ -55,7 +55,7 @@ function drawGraph(
   ctx.fillText(`${yMax}°`, PAD.left - 4, PAD.top + 4);
 
   const LINE_H = 11;
-  const LABEL_H = LINE_H * 2;
+  const LABEL_H = 28; // min baseline gap between label groups (accommodates 2-line pill height)
   type LabelEntry = { joint: CanvasKeypointName; color: string; currentAngle: number; y: number };
   const labels: LabelEntry[] = [];
 
@@ -101,12 +101,24 @@ function drawGraph(
     ctx.stroke();
   }
 
+  const PILL_PX = 4;
+  const PILL_PY = 3;
   ctx.textAlign = "right";
   const labelX = W - PAD.right - 2;
   for (const { color, currentAngle, joint, y } of labels) {
+    const name = formatJointName(joint);
+    const angleStr = `${Math.round(currentAngle)}°`;
+    const maxW = Math.max(ctx.measureText(name).width, ctx.measureText(angleStr).width);
+    const pillTop = y - 7 - PILL_PY;
+    const pillH = LINE_H + 9 + 2 + PILL_PY * 2; // two lines + top/bottom padding
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.beginPath();
+    ctx.roundRect(labelX - maxW - PILL_PX, pillTop, maxW + PILL_PX * 2, pillH, 3);
+    ctx.fill();
     ctx.fillStyle = color;
-    ctx.fillText(formatJointName(joint), labelX, y);
-    ctx.fillText(`${Math.round(currentAngle)}°`, labelX, y + LINE_H);
+    ctx.fillText(name, labelX, y);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(angleStr, labelX, y + LINE_H);
   }
 
   ctx.restore();

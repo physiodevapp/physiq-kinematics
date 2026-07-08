@@ -189,8 +189,12 @@ function paintChart(
     ctx.setLineDash([]);
 
     // Dots + labels at cursor position
-    const LINE_H = 11;
-    type CL = { color: string; text: string; y: number };
+    const PILL_PX = 4;   // horizontal padding per side
+    const PILL_PY = 3;   // vertical padding per side
+    const PILL_H = 15;   // single-line pill height (9px font + 2×3 padding)
+    const MIN_GAP = 17;  // min px between consecutive label baselines (2px gap between pills)
+
+    type CL = { color: string; text: string; rawY: number; labelY: number };
     const cursorLabels: CL[] = [];
     for (const joint of joints) {
       const e = series[joint];
@@ -205,26 +209,50 @@ function paintChart(
       cursorLabels.push({
         color: getColorsForJoint(joint).borderColor,
         text: `${formatJointName(joint)} ${Math.round(angle)}°`,
-        y,
+        rawY: y,
+        labelY: y,
       });
     }
 
-    cursorLabels.sort((a, b) => a.y - b.y);
+    cursorLabels.sort((a, b) => a.rawY - b.rawY);
     for (let i = 1; i < cursorLabels.length; i++) {
-      if (cursorLabels[i].y < cursorLabels[i - 1].y + LINE_H)
-        cursorLabels[i].y = cursorLabels[i - 1].y + LINE_H;
+      if (cursorLabels[i].labelY < cursorLabels[i - 1].labelY + MIN_GAP)
+        cursorLabels[i].labelY = cursorLabels[i - 1].labelY + MIN_GAP;
+    }
+    for (let i = cursorLabels.length - 2; i >= 0; i--) {
+      if (cursorLabels[i].labelY + MIN_GAP > cursorLabels[i + 1].labelY)
+        cursorLabels[i].labelY = cursorLabels[i + 1].labelY - MIN_GAP;
     }
 
     const onRight = cx < PAD.left + plotW / 2;
     ctx.textAlign = onRight ? "left" : "right";
-    const lx = onRight ? cx + 5 : cx - 5;
-    for (const { color, text, y } of cursorLabels) {
-      const textWidth = ctx.measureText(text).width;
-      const boxX = onRight ? lx - 2 : lx - textWidth - 2;
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(boxX, y - 7, textWidth + 4, 10);
+    const lx = onRight ? cx + 8 : cx - 8;
+
+    for (const { color, text, rawY, labelY } of cursorLabels) {
+      const textW = ctx.measureText(text).width;
+
+      if (Math.abs(labelY - rawY) > 3) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.45;
+        ctx.lineWidth = 0.75;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(cx, rawY);
+        ctx.lineTo(onRight ? lx - PILL_PX : lx + PILL_PX, labelY);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const pillX = onRight ? lx - PILL_PX : lx - textW - PILL_PX;
+      const pillY = labelY - 7 - PILL_PY;
+      ctx.fillStyle = "rgba(0,0,0,0.72)";
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, textW + PILL_PX * 2, PILL_H, 3);
+      ctx.fill();
+
       ctx.fillStyle = color;
-      ctx.fillText(text, lx, y + 3);
+      ctx.fillText(text, lx, labelY);
     }
   }
 
