@@ -199,16 +199,21 @@ export default function KinematicsRecordingsList({
 
       {/* ── Translate banner ── */}
       <div
-        className="shrink-0 overflow-hidden"
+        className="shrink-0"
         style={{
-          maxHeight: showTranslateBanner ? "44px" : "0px",
-          opacity: showTranslateBanner ? 1 : 0,
-          transition: "max-height 0.25s ease, opacity 0.25s ease",
+          height: showTranslateBanner ? 40 : 0,
+          overflow: "hidden",
+          transition: showTranslateBanner ? "height 0s" : "height 0s 0.25s",
         }}
       >
         <div
           className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10"
-          style={{ background: "#111620" }}
+          style={{
+            background: "#111620",
+            transform: showTranslateBanner ? "translateY(0)" : "translateY(-100%)",
+            opacity: showTranslateBanner ? 1 : 0,
+            transition: "transform 0.25s ease, opacity 0.25s ease",
+          }}
         >
           <span className="text-sm">🌐</span>
           <span className="text-white/60 text-xs flex-1">
