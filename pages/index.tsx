@@ -177,6 +177,15 @@ export default function Home() {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const handleDeleteSentRecording = async (index: number) => {
+    const updated = sentRecordings.filter((_, i) => i !== index);
+    setSentRecordings(updated);
+    await writeSession({ kinematics: updated });
+    const ch = new BroadcastChannel("physiq-session");
+    ch.postMessage({ type: "SESSION_KINEMATICS", kinematics: updated });
+    ch.close();
+  };
+
   const handleOpenRecording = (index: number) => {
     setReviewSavedIndex(index);
     setReviewSavedSource('draft');
@@ -744,6 +753,7 @@ export default function Home() {
           recordings={recordings}
           sentRecordings={sentRecordings}
           onDelete={handleDeleteRecording}
+          onDeleteSent={handleDeleteSentRecording}
           onOpen={handleOpenRecording}
           onOpenSent={handleOpenSentRecording}
           onSend={handleSendToReport}
