@@ -251,6 +251,8 @@ export default function KinematicsReview({
   const [patientInput, setPatientInput] = useState("");
   const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [showTranslateBanner, setShowTranslateBanner] = useState(false);
+  const translateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     readSession().then((s) => {
@@ -294,12 +296,14 @@ export default function KinematicsReview({
   };
 
   const handleTranslate = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(
-      `https://translate.google.com/translate?sl=es&tl=en&u=${url}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    setShowTranslateBanner(true);
+    if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    translateTimerRef.current = setTimeout(() => setShowTranslateBanner(false), 4000);
+  };
+
+  const hideTranslateBanner = () => {
+    if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    setShowTranslateBanner(false);
   };
 
   useEffect(() => {
@@ -457,7 +461,8 @@ export default function KinematicsReview({
             <button
               onClick={handleTranslate}
               className="text-white/50 active:opacity-70 transition-opacity"
-              aria-label="Traducir"
+              aria-label="View in English"
+              title="Long-press or right-click → Translate to English"
             >
               <GlobeAltIcon className="h-5 w-5" />
             </button>
@@ -540,6 +545,22 @@ export default function KinematicsReview({
           }}
         />
 
+      </div>
+
+      {/* Translate banner — slides down below header */}
+      <div
+        className="shrink-0 overflow-hidden"
+        style={{
+          maxHeight: showTranslateBanner ? "44px" : "0px",
+          opacity: showTranslateBanner ? 1 : 0,
+          transition: "max-height 0.25s ease, opacity 0.25s ease",
+        }}
+      >
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 border-b border-white/10">
+          <span className="text-sm">🌐</span>
+          <span className="text-white/60 text-xs flex-1">Long-press or right-click → Translate to English</span>
+          <button onClick={hideTranslateBanner} className="text-white/40 text-base leading-none active:opacity-70">✕</button>
+        </div>
       </div>
 
       {/* Session panel — bottom sheet */}
