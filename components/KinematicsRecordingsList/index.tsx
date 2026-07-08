@@ -252,9 +252,10 @@ export default function KinematicsRecordingsList({
             onClick={() => setTab("draft")}
             className="transition-colors font-medium"
             style={{
-              padding: "6px 14px",
+              padding: "5px 13px",
               borderRadius: 20,
               fontSize: "0.72rem",
+              fontWeight: 500,
               ...(tab === "draft"
                 ? { background: "#5dadec", color: "#0a0d12", border: "1px solid #5dadec" }
                 : { color: "#8aa4bc", border: "1px solid #232d45", background: "#111620" }),
@@ -269,9 +270,10 @@ export default function KinematicsRecordingsList({
             onClick={() => setTab("sent")}
             className="transition-colors font-medium"
             style={{
-              padding: "6px 14px",
+              padding: "5px 13px",
               borderRadius: 20,
               fontSize: "0.72rem",
+              fontWeight: 500,
               ...(tab === "sent"
                 ? { background: "#5dadec", color: "#0a0d12", border: "1px solid #5dadec" }
                 : { color: "#8aa4bc", border: "1px solid #232d45", background: "#111620" }),

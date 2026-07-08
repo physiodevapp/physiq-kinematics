@@ -8,7 +8,7 @@ import {
   FilmIcon,
   GlobeAltIcon,
   PencilSquareIcon,
-  UserCircleIcon,
+  UserIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
@@ -516,8 +516,8 @@ export default function KinematicsReview({
               className="active:opacity-70 transition-opacity"
               aria-label="Sesión"
             >
-              <UserCircleIcon
-                className="h-5 w-5"
+              <UserIcon
+                className="h-4 w-4"
                 style={patient ? { color: "#5dadec" } : { color: "rgba(255,255,255,0.5)" }}
               />
             </button>
@@ -527,7 +527,7 @@ export default function KinematicsReview({
               aria-label="View in English"
               title="Long-press or right-click → Translate to English"
             >
-              <GlobeAltIcon className="h-5 w-5" />
+              <GlobeAltIcon className="h-4 w-4" />
             </button>
           </div>
         </div>
