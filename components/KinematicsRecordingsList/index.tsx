@@ -204,9 +204,8 @@ export default function KinematicsRecordingsList({
           className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10"
           style={{
             background: "#111620",
-            transform: showTranslateBanner ? "translateY(0)" : "translateY(-100%)",
             opacity: showTranslateBanner ? 1 : 0,
-            transition: "transform 0.25s ease, opacity 0.25s ease",
+            transition: "opacity 0.25s ease",
           }}
         >
           <span className="text-sm">🌐</span>
