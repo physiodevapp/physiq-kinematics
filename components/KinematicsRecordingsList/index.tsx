@@ -197,7 +197,7 @@ export default function KinematicsRecordingsList({
         style={{
           height: showTranslateBanner ? 40 : 0,
           overflow: "hidden",
-          transition: showTranslateBanner ? "height 0.25s ease" : "height 0s 0.25s",
+          transition: showTranslateBanner ? "height 0.25s ease" : "height 0.25s ease 0.25s",
         }}
       >
         <div
