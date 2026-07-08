@@ -70,7 +70,9 @@ function paintChart(
   dur: number,
   curMs: number,
   yMax: number,
-  selRange?: { start: number; end: number } | null,
+  selRange: { start: number; end: number } | null | undefined,
+  viewStart: number,
+  viewEnd: number,
 ) {
   if (dur === 0 || W === 0 || H === 0) return;
 
@@ -80,7 +82,8 @@ function paintChart(
 
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
-  const tx = (ms: number) => PAD.left + (ms / dur) * plotW;
+  const viewSpan = viewEnd - viewStart;
+  const tx = (ms: number) => PAD.left + ((ms - viewStart) / viewSpan) * plotW;
   const ay = (a: number) => PAD.top + plotH * (1 - Math.min(Math.max(a, 0), yMax) / yMax);
 
   ctx.font = "9px 'DM Mono', monospace";
@@ -104,14 +107,17 @@ function paintChart(
   ctx.fillText("0°", PAD.left - 4, PAD.top + plotH + 4);
   ctx.fillText(`${yMax}°`, PAD.left - 4, PAD.top + 4);
 
-  // X axis time labels + light grid
-  const totalSec = dur / 1000;
-  const step = totalSec <= 30 ? 10 : totalSec <= 120 ? 30 : 60;
+  // X axis time labels + light grid (adaptive to visible span)
+  const visibleSec = viewSpan / 1000;
+  const step = visibleSec <= 5 ? 1 : visibleSec <= 15 ? 2 : visibleSec <= 30 ? 5 : visibleSec <= 120 ? 10 : 30;
+  const stepMs = step * 1000;
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.textAlign = "center";
-  ctx.fillText(fmtTime(0), PAD.left, H - 4);
-  ctx.fillText(fmtTime(dur), PAD.left + plotW, H - 4);
-  for (let t = step * 1000; t < dur - step * 400; t += step * 1000) {
+  ctx.fillText(fmtTime(viewStart), PAD.left, H - 4);
+  ctx.fillText(fmtTime(viewEnd), PAD.left + plotW, H - 4);
+  const gridStart = Math.ceil(viewStart / stepMs) * stepMs;
+  for (let t = gridStart; t < viewEnd - stepMs * 0.2; t += stepMs) {
+    if (t <= viewStart) continue;
     const x = tx(t);
     ctx.strokeStyle = "rgba(255,255,255,0.08)";
     ctx.lineWidth = 1;
@@ -125,7 +131,11 @@ function paintChart(
     ctx.fillText(fmtTime(t), x, H - 4);
   }
 
-  // Joint angle lines
+  // Joint angle lines (clip to plot area so out-of-view segments don't bleed)
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PAD.left, PAD.top, plotW, plotH);
+  ctx.clip();
   for (const joint of joints) {
     const e = series[joint];
     if (!e || e.t.length < 2) continue;
@@ -140,75 +150,95 @@ function paintChart(
     }
     ctx.stroke();
   }
+  ctx.restore();
 
   // Selection range overlay
   if (selRange) {
-    const sx = tx(Math.max(selRange.start, 0));
-    const ex = tx(Math.min(selRange.end, dur));
-    ctx.fillStyle = "rgba(93,173,236,0.15)";
-    ctx.fillRect(sx, PAD.top, ex - sx, plotH);
-    ctx.strokeStyle = "#5dadec";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
+    const sx = tx(Math.max(selRange.start, viewStart));
+    const ex = tx(Math.min(selRange.end, viewEnd));
+    if (ex > sx) {
+      ctx.fillStyle = "rgba(93,173,236,0.15)";
+      ctx.fillRect(sx, PAD.top, ex - sx, plotH);
+      ctx.strokeStyle = "#5dadec";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      if (selRange.start >= viewStart) {
+        ctx.beginPath();
+        ctx.moveTo(sx, PAD.top);
+        ctx.lineTo(sx, PAD.top + plotH);
+        ctx.stroke();
+      }
+      if (selRange.end <= viewEnd) {
+        ctx.beginPath();
+        ctx.moveTo(ex, PAD.top);
+        ctx.lineTo(ex, PAD.top + plotH);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Cursor vertical line — only if inside the view window
+  if (curMs >= viewStart && curMs <= viewEnd) {
+    const cx = tx(curMs);
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.moveTo(sx, PAD.top);
-    ctx.lineTo(sx, PAD.top + plotH);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(ex, PAD.top);
-    ctx.lineTo(ex, PAD.top + plotH);
+    ctx.moveTo(cx, PAD.top);
+    ctx.lineTo(cx, PAD.top + plotH);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // Dots + labels at cursor position
+    const LINE_H = 11;
+    type CL = { color: string; text: string; y: number };
+    const cursorLabels: CL[] = [];
+    for (const joint of joints) {
+      const e = series[joint];
+      if (!e) continue;
+      const angle = angleAt(e, curMs);
+      if (angle === null) continue;
+      const y = ay(angle);
+      ctx.fillStyle = getColorsForJoint(joint).borderColor;
+      ctx.beginPath();
+      ctx.arc(cx, y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      cursorLabels.push({
+        color: getColorsForJoint(joint).borderColor,
+        text: `${formatJointName(joint)} ${Math.round(angle)}°`,
+        y,
+      });
+    }
+
+    cursorLabels.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < cursorLabels.length; i++) {
+      if (cursorLabels[i].y < cursorLabels[i - 1].y + LINE_H)
+        cursorLabels[i].y = cursorLabels[i - 1].y + LINE_H;
+    }
+
+    const onRight = cx < PAD.left + plotW / 2;
+    ctx.textAlign = onRight ? "left" : "right";
+    const lx = onRight ? cx + 5 : cx - 5;
+    for (const { color, text, y } of cursorLabels) {
+      const textWidth = ctx.measureText(text).width;
+      const boxX = onRight ? lx - 2 : lx - textWidth - 2;
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(boxX, y - 7, textWidth + 4, 10);
+      ctx.fillStyle = color;
+      ctx.fillText(text, lx, y + 3);
+    }
   }
 
-  // Cursor vertical line
-  const cx = tx(Math.min(Math.max(curMs, 0), dur));
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(cx, PAD.top);
-  ctx.lineTo(cx, PAD.top + plotH);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Dots + labels at cursor position
-  const LINE_H = 11;
-  type CL = { color: string; text: string; y: number };
-  const cursorLabels: CL[] = [];
-  for (const joint of joints) {
-    const e = series[joint];
-    if (!e) continue;
-    const angle = angleAt(e, curMs);
-    if (angle === null) continue;
-    const y = ay(angle);
-    ctx.fillStyle = getColorsForJoint(joint).borderColor;
-    ctx.beginPath();
-    ctx.arc(cx, y, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-    cursorLabels.push({
-      color: getColorsForJoint(joint).borderColor,
-      text: `${formatJointName(joint)} ${Math.round(angle)}°`,
-      y,
-    });
-  }
-
-  cursorLabels.sort((a, b) => a.y - b.y);
-  for (let i = 1; i < cursorLabels.length; i++) {
-    if (cursorLabels[i].y < cursorLabels[i - 1].y + LINE_H)
-      cursorLabels[i].y = cursorLabels[i - 1].y + LINE_H;
-  }
-
-  const onRight = cx < PAD.left + plotW / 2;
-  ctx.textAlign = onRight ? "left" : "right";
-  const lx = onRight ? cx + 5 : cx - 5;
-  for (const { color, text, y } of cursorLabels) {
-    const textWidth = ctx.measureText(text).width;
-    const boxX = onRight ? lx - 2 : lx - textWidth - 2;
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
-    ctx.fillRect(boxX, y - 7, textWidth + 4, 10);
-    ctx.fillStyle = color;
-    ctx.fillText(text, lx, y + 3);
+  // Zoom scrollbar indicator — thin bar at bottom, only when zoomed in
+  if (viewStart > 0 || viewEnd < dur) {
+    const barY = H - 2;
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.fillRect(PAD.left, barY, plotW, 2);
+    const sx = PAD.left + (viewStart / dur) * plotW;
+    const ex = PAD.left + (viewEnd / dur) * plotW;
+    ctx.fillStyle = "rgba(93,173,236,0.7)";
+    ctx.fillRect(sx, barY, ex - sx, 2);
   }
 
   ctx.restore();
@@ -243,6 +273,17 @@ export default function KinematicsReview({
   const curMsRef = useRef(0);
   const draggingRef = useRef(false);
   const needsRepaintRef = useRef(false);
+
+  // Zoom: view window in ms, multi-pointer tracking, pinch state, double-tap
+  const viewRef = useRef({ start: 0, end: duration });
+  const activePointersRef = useRef<Map<number, number>>(new Map());
+  const pinchRef = useRef<{
+    initialDist: number;
+    initialStart: number;
+    initialEnd: number;
+    centerMs: number;
+  } | null>(null);
+  const lastTapRef = useRef(0);
 
   const [workingSeries, setWorkingSeries] = useState<KinematicsSeries>(() => series);
   const workingSeriesRef = useRef<KinematicsSeries>(series);
@@ -336,11 +377,18 @@ export default function KinematicsReview({
     return mx <= 90 ? 90 : mx <= 135 ? 135 : 180;
   }, [joints, series]);
 
-  // rAF loop: resize canvas and repaint when cursor or series changes
+  // Reset view window when duration changes (new recording opened)
+  useEffect(() => {
+    viewRef.current = { start: 0, end: duration };
+    needsRepaintRef.current = true;
+  }, [duration]);
+
+  // rAF loop: resize canvas and repaint when cursor, series, or view changes
   useEffect(() => {
     let rafId: number;
     let lastCurMs = -1;
     let lastW = 0, lastH = 0;
+    let lastViewStart = -1, lastViewEnd = -1;
 
     const tick = () => {
       rafId = requestAnimationFrame(tick);
@@ -356,11 +404,14 @@ export default function KinematicsReview({
         cv.height = targetH;
       }
 
+      const { start: vStart, end: vEnd } = viewRef.current;
       if (
         needsRepaintRef.current ||
         Math.abs(curMsRef.current - lastCurMs) > 20 ||
         W !== lastW ||
-        H !== lastH
+        H !== lastH ||
+        vStart !== lastViewStart ||
+        vEnd !== lastViewEnd
       ) {
         const ctx = cv.getContext("2d");
         if (ctx) {
@@ -369,11 +420,14 @@ export default function KinematicsReview({
             workingSeriesRef.current,
             duration, curMsRef.current, yMax,
             selRangeRef.current,
+            vStart, vEnd,
           );
         }
         lastCurMs = curMsRef.current;
         lastW = W;
         lastH = H;
+        lastViewStart = vStart;
+        lastViewEnd = vEnd;
         needsRepaintRef.current = false;
       }
     };
@@ -392,7 +446,9 @@ export default function KinematicsReview({
     if (!cv || duration === 0) return 0;
     const rect = cv.getBoundingClientRect();
     const plotW = rect.width - PAD.left - PAD.right;
-    return Math.min(Math.max((clientX - rect.left - PAD.left) / plotW, 0), 1) * duration;
+    const frac = Math.min(Math.max((clientX - rect.left - PAD.left) / plotW, 0), 1);
+    const { start, end } = viewRef.current;
+    return start + frac * (end - start);
   };
 
   const handleInterpolate = () => {
@@ -516,6 +572,35 @@ export default function KinematicsReview({
           style={editMode ? { cursor: "crosshair" } : undefined}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
+            activePointersRef.current.set(e.pointerId, e.clientX);
+
+            if (activePointersRef.current.size === 2) {
+              // Second finger down — start pinch, cancel any single-finger action
+              editAnchorRef.current = null;
+              draggingRef.current = false;
+              const pointers = [...activePointersRef.current.values()];
+              const dist = Math.abs(pointers[1] - pointers[0]);
+              const midX = (pointers[0] + pointers[1]) / 2;
+              pinchRef.current = {
+                initialDist: dist,
+                initialStart: viewRef.current.start,
+                initialEnd: viewRef.current.end,
+                centerMs: chartTimeFromClientX(midX),
+              };
+              return;
+            }
+
+            // Double-tap detection: reset zoom
+            const now = Date.now();
+            if (now - lastTapRef.current < 280) {
+              viewRef.current = { start: 0, end: duration };
+              needsRepaintRef.current = true;
+              lastTapRef.current = 0;
+              return;
+            }
+            lastTapRef.current = now;
+
+            // Single finger
             if (editMode) {
               const t = chartTimeFromClientX(e.clientX);
               editAnchorRef.current = t;
@@ -524,12 +609,31 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             } else {
               draggingRef.current = true;
-              const t = chartTimeFromClientX(e.clientX);
-              curMsRef.current = t;
+              curMsRef.current = chartTimeFromClientX(e.clientX);
               needsRepaintRef.current = true;
             }
           }}
           onPointerMove={(e) => {
+            activePointersRef.current.set(e.pointerId, e.clientX);
+
+            // Pinch zoom
+            if (pinchRef.current && activePointersRef.current.size === 2) {
+              const pointers = [...activePointersRef.current.values()];
+              const newDist = Math.abs(pointers[1] - pointers[0]);
+              const { initialDist, initialStart, initialEnd, centerMs } = pinchRef.current;
+              const initialSpan = initialEnd - initialStart;
+              const zoomFactor = newDist / initialDist;
+              const newSpan = Math.max(500, Math.min(duration, initialSpan / zoomFactor));
+              const frac = (centerMs - initialStart) / initialSpan;
+              let newStart = centerMs - frac * newSpan;
+              let newEnd = newStart + newSpan;
+              if (newStart < 0) { newStart = 0; newEnd = Math.min(duration, newSpan); }
+              if (newEnd > duration) { newEnd = duration; newStart = Math.max(0, duration - newSpan); }
+              viewRef.current = { start: newStart, end: newEnd };
+              needsRepaintRef.current = true;
+              return;
+            }
+
             if (editMode) {
               if (editAnchorRef.current === null) return;
               const t = chartTimeFromClientX(e.clientX);
@@ -544,7 +648,12 @@ export default function KinematicsReview({
               needsRepaintRef.current = true;
             }
           }}
-          onPointerUp={() => {
+          onPointerUp={(e) => {
+            activePointersRef.current.delete(e.pointerId);
+            if (pinchRef.current) {
+              if (activePointersRef.current.size < 2) pinchRef.current = null;
+              return;
+            }
             if (editMode) {
               const r = selRangeRef.current;
               if (r && (r.end - r.start) < minRangeMs) {
@@ -557,7 +666,9 @@ export default function KinematicsReview({
               draggingRef.current = false;
             }
           }}
-          onPointerCancel={() => {
+          onPointerCancel={(e) => {
+            activePointersRef.current.delete(e.pointerId);
+            pinchRef.current = null;
             editAnchorRef.current = null;
             draggingRef.current = false;
           }}
