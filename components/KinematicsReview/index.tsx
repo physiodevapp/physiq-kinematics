@@ -348,6 +348,17 @@ export default function KinematicsReview({
   const [clearConfirm, setClearConfirm] = useState(false);
   const [showTranslateBanner, setShowTranslateBanner] = useState(false);
   const translateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    observer.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     readSession().then((s) => {
@@ -552,7 +563,7 @@ export default function KinematicsReview({
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Header */}
-      <div className="shrink-0 bg-black/60">
+      <div ref={headerRef} className="shrink-0 bg-black/60 relative z-10">
         <div className="flex items-center justify-between px-4 py-3">
           <h2 className="font-display text-white text-base inline-flex items-center gap-1.5">
             {isInIframe && (
@@ -622,21 +633,18 @@ export default function KinematicsReview({
         </div>
       </div>
 
-      {/* Translate banner — slides down below header */}
-      <div
-        className="shrink-0"
-        style={{
-          height: showTranslateBanner ? 40 : 0,
-          overflow: "hidden",
-          transition: "height 0.25s ease",
-        }}
-      >
+      {/* Translate banner — slides from behind header */}
+      {headerHeight > 0 && (
         <div
-          className="flex items-center gap-2 px-4 py-2.5 border-b border-white/10"
+          className="absolute left-0 right-0 flex items-center gap-2 px-4 border-b border-white/10"
           style={{
+            top: headerHeight,
+            zIndex: 5,
+            height: 40,
             background: "#111620",
+            transform: showTranslateBanner ? "translateY(0)" : "translateY(-100%)",
             opacity: showTranslateBanner ? 1 : 0,
-            transition: "opacity 0.25s ease",
+            transition: "transform 0.25s ease, opacity 0.25s ease",
           }}
         >
           <span className="text-sm">🌐</span>
@@ -650,7 +658,16 @@ export default function KinematicsReview({
             ✕
           </button>
         </div>
-      </div>
+      )}
+
+      {/* Spacer — pushes chart down in sync with the translate banner */}
+      <div
+        className="shrink-0"
+        style={{
+          height: showTranslateBanner ? 40 : 0,
+          transition: "height 0.25s ease",
+        }}
+      />
 
       {/* Angle chart — fills all available space */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
