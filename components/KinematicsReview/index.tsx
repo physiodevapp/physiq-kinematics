@@ -565,7 +565,7 @@ export default function KinematicsReview({
       {/* Header */}
       <div ref={headerRef} className="shrink-0 bg-black/60 relative z-10">
         <div className="flex items-center justify-between px-4 py-3">
-          <h2 className="font-display text-white text-base inline-flex items-center gap-1.5">
+          <h2 className="font-display text-white text-[1.1rem] min-[480px]:text-[1.2rem] min-[769px]:text-[1.5rem] inline-flex items-center gap-1.5" style={{ letterSpacing: "-0.5px" }}>
             {isInIframe && (
               <span
                 className="animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
