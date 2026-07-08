@@ -251,7 +251,6 @@ export default function KinematicsReview({
   const [patientInput, setPatientInput] = useState("");
   const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
-  const [showTranslatePicker, setShowTranslatePicker] = useState(false);
 
   useEffect(() => {
     readSession().then((s) => {
@@ -294,14 +293,13 @@ export default function KinematicsReview({
     setShowSessionPanel(true);
   };
 
-  const handleTranslate = (lang: string) => {
+  const handleTranslate = () => {
     const url = encodeURIComponent(window.location.href);
     window.open(
-      `https://translate.google.com/translate?sl=es&tl=${lang}&u=${url}`,
+      `https://translate.google.com/translate?sl=es&tl=en&u=${url}`,
       "_blank",
       "noopener,noreferrer",
     );
-    setShowTranslatePicker(false);
   };
 
   useEffect(() => {
@@ -447,13 +445,6 @@ export default function KinematicsReview({
           </h2>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowTranslatePicker(true)}
-              className="text-white/50 active:opacity-70 transition-opacity"
-              aria-label="Traducir"
-            >
-              <GlobeAltIcon className="h-5 w-5" />
-            </button>
-            <button
               onClick={handleOpenSessionPanel}
               className="active:opacity-70 transition-opacity"
               aria-label="Sesión"
@@ -462,6 +453,13 @@ export default function KinematicsReview({
                 className="h-5 w-5"
                 style={patient ? { color: "#5dadec" } : { color: "rgba(255,255,255,0.5)" }}
               />
+            </button>
+            <button
+              onClick={handleTranslate}
+              className="text-white/50 active:opacity-70 transition-opacity"
+              aria-label="Traducir"
+            >
+              <GlobeAltIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -600,47 +598,6 @@ export default function KinematicsReview({
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Translate picker — bottom sheet */}
-      {showTranslatePicker && (
-        <div className="fixed inset-0 z-[60] flex items-end">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setShowTranslatePicker(false)}
-          />
-          <div className="relative w-full bg-zinc-900 border-t border-white/10 rounded-t-2xl px-4 pt-4 pb-10 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display text-white text-base">Idioma</h3>
-              <button onClick={() => setShowTranslatePicker(false)} className="text-white/50 active:opacity-70">
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => setShowTranslatePicker(false)}
-                className="w-full py-3 rounded-md text-sm font-medium text-white border active:opacity-80"
-                style={{ borderColor: "#5dadec", color: "#5dadec" }}
-              >
-                Español (actual)
-              </button>
-              {[
-                { code: "en", label: "English" },
-                { code: "fr", label: "Français" },
-                { code: "de", label: "Deutsch" },
-                { code: "pt", label: "Português" },
-              ].map(({ code, label }) => (
-                <button
-                  key={code}
-                  onClick={() => handleTranslate(code)}
-                  className="w-full py-3 rounded-md text-sm text-white/70 border border-white/20 active:bg-white/5"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       )}
