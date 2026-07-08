@@ -340,8 +340,6 @@ export default function Home() {
         setIsPoseSettingsModalOpen(false);
         setShowPoseOrientationModal(false);
         setIsPoseModalOpen(false);
-        setReviewData(null);
-        setRecordings([]);
         setShowRecordingsList(false);
         setShowSavedToast(false);
         setShowNoDataDialog(false);
