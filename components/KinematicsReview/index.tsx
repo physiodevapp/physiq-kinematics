@@ -1,10 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AdjustmentsHorizontalIcon, ArrowUturnLeftIcon, CameraIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  AdjustmentsHorizontalIcon,
+  ArrowUturnLeftIcon,
+  CameraIcon,
+  GlobeAltIcon,
+  PencilSquareIcon,
+  UserCircleIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
+import { readSession, writeSession, clearSession } from "@/utils/session";
 
 const PAD = { top: 16, right: 8, bottom: 28, left: 36 };
 
@@ -238,6 +247,65 @@ export default function KinematicsReview({
   const [minRangeMs, setMinRangeMs] = useState(500);
   const [showSlider, setShowSlider] = useState(false);
 
+  const [patient, setPatient] = useState("");
+  const [patientInput, setPatientInput] = useState("");
+  const [showSessionPanel, setShowSessionPanel] = useState(false);
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [showTranslateBanner, setShowTranslateBanner] = useState(false);
+  const translateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    readSession().then((s) => {
+      if (s?.patient) setPatient(s.patient);
+    });
+
+    const ch = new BroadcastChannel("physiq-session");
+    ch.onmessage = (e) => {
+      if (e.data?.type === "SESSION_PATIENT") {
+        setPatient(e.data.patient ?? "");
+      } else if (e.data?.type === "SESSION_CLEAR") {
+        setPatient("");
+      }
+    };
+    return () => ch.close();
+  }, []);
+
+  const handlePatientSave = async () => {
+    const trimmed = patientInput.trim();
+    setPatient(trimmed);
+    await writeSession({ patient: trimmed });
+    const ch = new BroadcastChannel("physiq-session");
+    ch.postMessage({ type: "SESSION_PATIENT", patient: trimmed });
+    ch.close();
+  };
+
+  const handleClearSession = async () => {
+    await clearSession();
+    const ch = new BroadcastChannel("physiq-session");
+    ch.postMessage({ type: "SESSION_CLEAR" });
+    ch.close();
+    setPatient("");
+    setClearConfirm(false);
+    setShowSessionPanel(false);
+  };
+
+  const handleOpenSessionPanel = () => {
+    setPatientInput(patient);
+    setClearConfirm(false);
+    setShowSessionPanel(true);
+  };
+
+  const handleTranslate = () => {
+    setShowTranslateBanner(true);
+    if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    translateTimerRef.current = setTimeout(() => setShowTranslateBanner(false), 4000);
+  };
+
+  const hideTranslateBanner = () => {
+    if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    setShowTranslateBanner(false);
+  };
+
   useEffect(() => {
     workingSeriesRef.current = workingSeries;
     needsRepaintRef.current = true;
@@ -379,9 +447,26 @@ export default function KinematicsReview({
             <span className="opacity-50 font-normal">—</span>
             <span style={{ color: "#5dadec" }}>Kinematics</span>
           </h2>
-          <button onClick={onDiscard} className="p-1 -mr-1">
-            <XMarkIcon className="h-5 w-5 text-white/50" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleOpenSessionPanel}
+              className="active:opacity-70 transition-opacity"
+              aria-label="Sesión"
+            >
+              <UserCircleIcon
+                className="h-5 w-5"
+                style={patient ? { color: "#5dadec" } : { color: "rgba(255,255,255,0.5)" }}
+              />
+            </button>
+            <button
+              onClick={handleTranslate}
+              className="text-white/50 active:opacity-70 transition-opacity"
+              aria-label="View in English"
+              title="Long-press or right-click → Translate to English"
+            >
+              <GlobeAltIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
         <div className="flex items-center justify-between px-4 pb-2">
           <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
@@ -461,6 +546,82 @@ export default function KinematicsReview({
         />
 
       </div>
+
+      {/* Translate banner — slides down below header */}
+      <div
+        className="shrink-0 overflow-hidden"
+        style={{
+          maxHeight: showTranslateBanner ? "44px" : "0px",
+          opacity: showTranslateBanner ? 1 : 0,
+          transition: "max-height 0.25s ease, opacity 0.25s ease",
+        }}
+      >
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 border-b border-white/10">
+          <span className="text-sm">🌐</span>
+          <span className="text-white/60 text-xs flex-1">Long-press or right-click → Translate to English</span>
+          <button onClick={hideTranslateBanner} className="text-white/40 text-base leading-none active:opacity-70">✕</button>
+        </div>
+      </div>
+
+      {/* Session panel — bottom sheet */}
+      {showSessionPanel && (
+        <div className="fixed inset-0 z-[60] flex items-end">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowSessionPanel(false)}
+          />
+          <div className="relative w-full bg-zinc-900 border-t border-white/10 rounded-t-2xl px-4 pt-4 pb-10 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-white text-base">Sesión activa</h3>
+              <button onClick={() => setShowSessionPanel(false)} className="text-white/50 active:opacity-70">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mb-4">
+              <label className="font-mono text-xs text-white/40 block mb-1.5">Paciente</label>
+              <input
+                value={patientInput}
+                onChange={(e) => setPatientInput(e.target.value)}
+                onBlur={handlePatientSave}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
+                placeholder="Nombre del paciente..."
+                className="w-full bg-white/5 border border-white/15 rounded-md px-3 py-2.5 text-white text-sm outline-none transition-colors"
+                style={{ caretColor: "#5dadec" }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "#5dadec"; }}
+              />
+            </div>
+            {!clearConfirm ? (
+              <button
+                onClick={() => setClearConfirm(true)}
+                className="w-full py-3 rounded-md text-sm text-white/50 border border-white/20 active:bg-white/5"
+              >
+                Borrar sesión
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-white/50 text-xs text-center">
+                  Se borrará la sesión activa de todos los satélites. ¿Confirmar?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setClearConfirm(false)}
+                    className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleClearSession}
+                    className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
+                    style={{ background: "#5dadec" }}
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Action row — always same position; swaps buttons in edit mode */}
       <div className="shrink-0 flex gap-3 px-4 py-4">
