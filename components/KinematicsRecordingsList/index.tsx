@@ -419,18 +419,11 @@ export default function KinematicsRecordingsList({
       </div>
 
       {/* ── Action bar ── */}
-      <div
-        className="shrink-0 flex gap-3 px-4 py-4"
-        style={{ borderTop: "1px solid #232d45" }}
-      >
-        <button
-          onClick={onClose}
-          className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80 transition-opacity"
-          style={{ background: "#5dadec" }}
+      {tab === "draft" && recordings.length > 0 && (
+        <div
+          className="shrink-0 flex gap-3 px-4 py-4"
+          style={{ borderTop: "1px solid #232d45" }}
         >
-          Nueva grabación
-        </button>
-        {tab === "draft" && recordings.length > 0 && (
           <button
             onClick={onSend}
             className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
@@ -438,8 +431,8 @@ export default function KinematicsRecordingsList({
           >
             Guardar
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Session panel (bottom sheet) ── */}
       {showSessionPanel && (
