@@ -103,6 +103,9 @@ function drawGraph(
 
   const PILL_PX = 4;
   const PILL_PY = 3;
+  const DOT_R = 3;
+  const DOT_MARGIN = 4;
+  const DOT_TOTAL = DOT_R * 2 + DOT_MARGIN;
   ctx.textAlign = "right";
   const labelX = W - PAD.right - 2;
   for (const { color, currentAngle, joint, y } of labels) {
@@ -111,11 +114,16 @@ function drawGraph(
     const maxW = Math.max(ctx.measureText(name).width, ctx.measureText(angleStr).width);
     const pillTop = y - 7 - PILL_PY;
     const pillH = LINE_H + 9 + 2 + PILL_PY * 2; // two lines + top/bottom padding
+    const pillLeft = labelX - maxW - PILL_PX - DOT_TOTAL;
     ctx.fillStyle = "rgba(0,0,0,0.65)";
     ctx.beginPath();
-    ctx.roundRect(labelX - maxW - PILL_PX, pillTop, maxW + PILL_PX * 2, pillH, 3);
+    ctx.roundRect(pillLeft, pillTop, maxW + PILL_PX * 2 + DOT_TOTAL, pillH, 3);
     ctx.fill();
     ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(pillLeft + PILL_PX + DOT_R, pillTop + pillH / 2, DOT_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.fillText(name, labelX, y);
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.fillText(angleStr, labelX, y + LINE_H);
