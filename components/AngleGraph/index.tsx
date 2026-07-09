@@ -121,7 +121,7 @@ function drawGraph(
     ctx.fill();
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(pillLeft + PILL_PX + DOT_R, pillTop + pillH / 2, DOT_R, 0, Math.PI * 2);
+    ctx.arc(pillLeft + PILL_PX + DOT_R, y - 4, DOT_R, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.fillText(name, labelX, y);
