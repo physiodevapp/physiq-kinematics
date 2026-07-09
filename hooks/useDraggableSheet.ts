@@ -71,6 +71,9 @@ export function useDraggableSheet(
     };
 
     const dismiss = (durationMs: number = SNAP_DURATION) => {
+      // Remove entrance animation class so inline transform can take control immediately,
+      // even if dismiss() is called while animate-slide-up is still running.
+      sheet.classList.remove("animate-slide-up");
       sheet.style.transition = `transform ${durationMs}ms ${EASE_BEZIER}`;
       sheet.style.transform = "translateY(110%)";
       timer = setTimeout(() => {
