@@ -100,6 +100,8 @@ export default function Home() {
   const [showRecordingsList, setShowRecordingsList] = useState(false);
   const [listDefaultTab, setListDefaultTab] = useState<'draft' | 'sent'>('draft');
   const idbLoadedRef = useRef(false);
+  // Index of the draft that was auto-saved when recording stopped; null when not in a fresh-stop review
+  const pendingDraftIndexRef = useRef<number | null>(null);
 
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
@@ -156,18 +158,29 @@ export default function Home() {
       return;
     }
 
-    setReviewData({
+    const newDraft = {
       id: startedAt,
       startedAt,
       series,
       duration,
       joints: [...selectedJoints],
-    });
+    };
+    pendingDraftIndexRef.current = recordings.length;
+    setRecordings((prev) => [...prev, newDraft]);
+    setReviewData(newDraft);
   };
 
   const handleAcceptAndRecordAnother = (correctedSeries: KinematicsSeries) => {
     if (!reviewData) return;
-    setRecordings((prev) => [...prev, { ...reviewData, series: correctedSeries }]);
+    if (pendingDraftIndexRef.current !== null) {
+      const idx = pendingDraftIndexRef.current;
+      setRecordings((prev) =>
+        prev.map((r, i) => (i === idx ? { ...r, series: correctedSeries } : r))
+      );
+      pendingDraftIndexRef.current = null;
+    } else {
+      setRecordings((prev) => [...prev, { ...reviewData, series: correctedSeries }]);
+    }
     setReviewData(null);
     if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
     setShowSavedToast(true);
@@ -212,6 +225,15 @@ export default function Home() {
     if (!reviewData) return;
     if (reviewSavedIndex !== null) {
       handleBackToList(correctedSeries);
+    } else if (pendingDraftIndexRef.current !== null) {
+      const idx = pendingDraftIndexRef.current;
+      setRecordings((prev) =>
+        prev.map((r, i) => (i === idx ? { ...r, series: correctedSeries } : r))
+      );
+      pendingDraftIndexRef.current = null;
+      setReviewData(null);
+      setListDefaultTab('draft');
+      setShowRecordingsList(true);
     } else {
       setRecordings((prev) => [...prev, { ...reviewData, series: correctedSeries }]);
       setReviewData(null);
@@ -238,6 +260,7 @@ export default function Home() {
       ch.close();
       setListDefaultTab('sent');
     }
+    pendingDraftIndexRef.current = null;
     setReviewData(null);
     setReviewSavedIndex(null);
     setReviewSavedSource(null);
@@ -248,7 +271,13 @@ export default function Home() {
     if (!reviewData) return;
     let updatedDrafts = recordings;
     let updatedSent = sentRecordings;
-    if (reviewSavedSource === 'draft' && reviewSavedIndex !== null) {
+    if (pendingDraftIndexRef.current !== null) {
+      const idx = pendingDraftIndexRef.current;
+      updatedDrafts = recordings.map((r, i) =>
+        i === idx ? { ...r, series: correctedSeries } : r
+      );
+      pendingDraftIndexRef.current = null;
+    } else if (reviewSavedSource === 'draft' && reviewSavedIndex !== null) {
       updatedDrafts = recordings.map((r, i) =>
         i === reviewSavedIndex ? { ...r, series: correctedSeries } : r
       );
@@ -279,6 +308,17 @@ export default function Home() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setShowSentToast(true);
     toastTimerRef.current = setTimeout(() => setShowSentToast(false), 2500);
+  };
+
+  const handleDiscardReview = () => {
+    if (pendingDraftIndexRef.current !== null) {
+      const idx = pendingDraftIndexRef.current;
+      setRecordings((prev) => prev.filter((_, i) => i !== idx));
+      pendingDraftIndexRef.current = null;
+    }
+    setReviewData(null);
+    setReviewSavedIndex(null);
+    setReviewSavedSource(null);
   };
 
   const handleSendToReport = async () => {
@@ -721,10 +761,16 @@ export default function Home() {
           series={reviewData.series}
           duration={reviewData.duration}
           joints={reviewData.joints}
-          recordingNumber={reviewSavedIndex !== null ? reviewSavedIndex + 1 : recordings.length + 1}
+          recordingNumber={
+            reviewSavedIndex !== null
+              ? reviewSavedIndex + 1
+              : pendingDraftIndexRef.current !== null
+                ? pendingDraftIndexRef.current + 1
+                : recordings.length + 1
+          }
           mode={reviewSavedIndex !== null ? 'saved' : 'new'}
           onSend={handleSendFromReview}
-          onDiscard={() => { setReviewData(null); setReviewSavedIndex(null); setReviewSavedSource(null); }}
+          onDiscard={handleDiscardReview}
           onAcceptAndRecordAnother={handleAcceptAndRecordAnother}
           onBackToList={handleBackToList}
           onOpenList={handleOpenListFromReview}
