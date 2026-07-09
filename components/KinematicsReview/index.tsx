@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdjustmentsHorizontalIcon,
   ArrowUturnLeftIcon,
-  CameraIcon,
   FilmIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -735,7 +734,7 @@ export default function KinematicsReview({
                 whiteSpace: "nowrap",
               }}
             >
-              <CameraIcon className="h-4 w-4" />
+              <span className="leading-none">←</span>
               <span>Cámara</span>
             </button>
             <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
