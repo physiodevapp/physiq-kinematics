@@ -721,7 +721,7 @@ export default function KinematicsReview({
         <div className="flex items-center justify-between px-4 pb-2">
           <div className="flex items-center gap-2">
             <button
-              onClick={mode === 'saved' ? () => onBackToList?.(workingSeries) : () => onAcceptAndRecordAnother(workingSeries)}
+              onClick={() => onAcceptAndRecordAnother(workingSeries)}
               className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
               style={{
                 color: "#8aa4bc",
@@ -735,17 +735,8 @@ export default function KinematicsReview({
                 whiteSpace: "nowrap",
               }}
             >
-              {mode === 'saved' ? (
-                <>
-                  <span className="leading-none">←</span>
-                  <span>Volver</span>
-                </>
-              ) : (
-                <>
-                  <CameraIcon className="h-4 w-4" />
-                  <span>Cámara</span>
-                </>
-              )}
+              <CameraIcon className="h-4 w-4" />
+              <span>Cámara</span>
             </button>
             <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
           </div>
