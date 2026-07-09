@@ -101,14 +101,16 @@ function SessionPanel({
                     e.currentTarget.style.borderColor = "#5dadec";
                   }}
                 />
-                <button
-                  onClick={onClearRequest}
-                  className="shrink-0 rounded-md p-2.5 active:opacity-70 transition-opacity"
-                  style={{ border: "1px solid rgba(239,68,68,0.4)", color: "#ef4444" }}
-                  aria-label="Borrar sesión"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
+                {patientLabel && (
+                  <button
+                    onClick={onClearRequest}
+                    className="shrink-0 rounded-md p-2.5 active:opacity-70 transition-opacity"
+                    style={{ border: "1px solid rgba(239,68,68,0.4)", color: "#ef4444" }}
+                    aria-label="Borrar sesión"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           ) : (
