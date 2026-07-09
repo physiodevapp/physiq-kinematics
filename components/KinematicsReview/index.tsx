@@ -602,7 +602,27 @@ export default function KinematicsReview({
           </div>
         </div>
         <div className="flex items-center justify-between px-4 pb-2">
-          <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={mode === 'saved' ? () => onBackToList?.(workingSeries) : onDiscard}
+              className="flex items-center gap-1.5 active:opacity-70 transition-opacity"
+              style={{
+                color: "#8aa4bc",
+                border: "1px solid #232d45",
+                background: "transparent",
+                borderRadius: 8,
+                padding: "5px 10px",
+                fontFamily: "'DM Mono', monospace",
+                fontSize: "11px",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span className="leading-none">←</span>
+              <span>{mode === 'saved' ? 'Volver' : 'Descartar'}</span>
+            </button>
+            <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
+          </div>
           <div className="flex items-center gap-4">
             <button
               onClick={toggleEditMode}
@@ -926,21 +946,13 @@ export default function KinematicsReview({
             </>
           )
         ) : (
-          <>
-            <button
-              onClick={mode === 'saved' ? () => onBackToList?.(workingSeries) : onDiscard}
-              className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-            >
-              {mode === 'saved' ? 'Volver' : 'Descartar'}
-            </button>
-            <button
-              onClick={() => onSend(workingSeries)}
-              className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
-              style={{ background: "#5dadec" }}
-            >
-              Guardar
-            </button>
-          </>
+          <button
+            onClick={() => onSend(workingSeries)}
+            className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
+            style={{ background: "#5dadec" }}
+          >
+            Guardar
+          </button>
         )}
       </div>
     </div>
