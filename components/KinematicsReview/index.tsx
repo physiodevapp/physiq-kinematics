@@ -258,7 +258,7 @@ function paintChart(
       ctx.fill();
 
       const dotX = pillX + PILL_PX + DOT_R;
-      const dotY = pillY + PILL_H / 2;
+      const dotY = labelY - 4;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(dotX, dotY, DOT_R, 0, Math.PI * 2);
