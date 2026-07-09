@@ -113,8 +113,8 @@ function paintChart(
   const stepMs = step * 1000;
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.textAlign = "center";
-  ctx.fillText(fmtTime(viewStart), PAD.left, H - 4);
-  ctx.fillText(fmtTime(viewEnd), PAD.left + plotW, H - 4);
+  ctx.fillText(fmtTime(viewStart), PAD.left, H - 10);
+  ctx.fillText(fmtTime(viewEnd), PAD.left + plotW, H - 10);
   const gridStart = Math.ceil(viewStart / stepMs) * stepMs;
   for (let t = gridStart; t < viewEnd - stepMs * 0.2; t += stepMs) {
     if (t <= viewStart) continue;
@@ -128,7 +128,7 @@ function paintChart(
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.fillText(fmtTime(t), x, H - 4);
+    ctx.fillText(fmtTime(t), x, H - 10);
   }
 
   // Joint angle lines (clip to plot area so out-of-view segments don't bleed)
