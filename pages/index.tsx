@@ -103,6 +103,12 @@ export default function Home() {
   // Index of the draft that was auto-saved when recording stopped; null when not in a fresh-stop review
   const pendingDraftIndexRef = useRef<number | null>(null);
 
+  // Hub back-navigation
+  const popstateLockRef = useRef(false);
+  const reviewSourceRef = useRef<'camera' | 'list'>('camera');
+  const showRecordingsListRef = useRef(false);
+  const reviewDataRef = useRef<ReviewData | null>(null);
+
   const poseOrientations: PoseOrientation[] = ["front", "back", "left", "right", "auto"];
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
@@ -167,6 +173,8 @@ export default function Home() {
     };
     pendingDraftIndexRef.current = recordings.length;
     setRecordings((prev) => [...prev, newDraft]);
+    reviewSourceRef.current = 'camera';
+    if (isInIframe) history.pushState({ view: 'review' }, '');
     setReviewData(newDraft);
   };
 
@@ -180,6 +188,10 @@ export default function Home() {
       pendingDraftIndexRef.current = null;
     } else {
       setRecordings((prev) => [...prev, { ...reviewData, series: correctedSeries }]);
+    }
+    if (isInIframe) {
+      popstateLockRef.current = true;
+      history.go(reviewSourceRef.current === 'list' ? -2 : -1);
     }
     setReviewData(null);
     if (savedToastTimerRef.current) clearTimeout(savedToastTimerRef.current);
@@ -203,6 +215,8 @@ export default function Home() {
   const handleOpenRecording = (index: number) => {
     setReviewSavedIndex(index);
     setReviewSavedSource('draft');
+    reviewSourceRef.current = 'list';
+    if (isInIframe) history.pushState({ view: 'review' }, '');
     setReviewData(recordings[index]);
     setShowRecordingsList(false);
   };
@@ -211,6 +225,8 @@ export default function Home() {
     const r = sentRecordings[index];
     setReviewSavedIndex(index);
     setReviewSavedSource('sent');
+    reviewSourceRef.current = 'list';
+    if (isInIframe) history.pushState({ view: 'review' }, '');
     setReviewData({
       id: r.startedAt,
       startedAt: r.startedAt,
@@ -231,11 +247,13 @@ export default function Home() {
         prev.map((r, i) => (i === idx ? { ...r, series: correctedSeries } : r))
       );
       pendingDraftIndexRef.current = null;
+      if (isInIframe) history.replaceState({ view: 'list' }, '');
       setReviewData(null);
       setListDefaultTab('draft');
       setShowRecordingsList(true);
     } else {
       setRecordings((prev) => [...prev, { ...reviewData, series: correctedSeries }]);
+      if (isInIframe) history.replaceState({ view: 'list' }, '');
       setReviewData(null);
       setListDefaultTab('draft');
       setShowRecordingsList(true);
@@ -259,6 +277,10 @@ export default function Home() {
       ch.postMessage({ type: "SESSION_KINEMATICS", kinematics: updated });
       ch.close();
       setListDefaultTab('sent');
+    }
+    if (isInIframe) {
+      popstateLockRef.current = true;
+      history.go(-1);
     }
     pendingDraftIndexRef.current = null;
     setReviewData(null);
@@ -297,6 +319,10 @@ export default function Home() {
     const ch = new BroadcastChannel("physiq-session");
     ch.postMessage({ type: "SESSION_KINEMATICS", kinematics });
     ch.close();
+    if (isInIframe) {
+      popstateLockRef.current = true;
+      history.go(reviewSourceRef.current === 'list' ? -2 : -1);
+    }
     setSentRecordings(kinematics);
     setRecordings([]);
     setReviewData(null);
@@ -316,6 +342,10 @@ export default function Home() {
       setRecordings((prev) => prev.filter((_, i) => i !== idx));
       pendingDraftIndexRef.current = null;
     }
+    if (isInIframe) {
+      popstateLockRef.current = true;
+      history.go(reviewSourceRef.current === 'list' ? -2 : -1);
+    }
     setReviewData(null);
     setReviewSavedIndex(null);
     setReviewSavedSource(null);
@@ -331,6 +361,10 @@ export default function Home() {
     const ch = new BroadcastChannel("physiq-session");
     ch.postMessage({ type: "SESSION_KINEMATICS", kinematics });
     ch.close();
+    if (isInIframe) {
+      popstateLockRef.current = true;
+      history.go(-1);
+    }
     setSentRecordings(kinematics);
     setRecordings([]);
     setShowRecordingsList(false);
@@ -476,6 +510,10 @@ export default function Home() {
         setReviewData(null);
         setReviewSavedIndex(null);
         setReviewSavedSource(null);
+        if (isInIframe) {
+          history.replaceState({ view: 'hub-exit' }, '');
+          history.pushState({ view: 'camera' }, '');
+        }
       }
     };
     return () => ch.close();
@@ -483,16 +521,29 @@ export default function Home() {
 
   // Hub integration: listen for visibility messages
   useEffect(() => {
+    const rebuildHubHistory = () => {
+      history.replaceState({ view: 'hub-exit' }, '');
+      history.pushState({ view: 'camera' }, '');
+      if (showRecordingsListRef.current) {
+        history.pushState({ view: 'list' }, '');
+      } else if (reviewDataRef.current !== null) {
+        if (reviewSourceRef.current === 'list') {
+          history.pushState({ view: 'list' }, '');
+        }
+        history.pushState({ view: 'review' }, '');
+      }
+    };
+
     const handleMessage = (e: MessageEvent) => {
       if (e.data?.type === "PHYSIQ_SAT_VISIBLE") {
         setIsCameraActive(true);
+        rebuildHubHistory();
       } else if (e.data?.type === "PHYSIQ_SAT_HIDDEN") {
         setIsCameraActive(false);
         setIsFrozen(false);
         setIsPoseSettingsModalOpen(false);
         setShowPoseOrientationModal(false);
         setIsPoseModalOpen(false);
-        setShowRecordingsList(false);
         setShowSavedToast(false);
         setShowNoDataDialog(false);
         if (isRecordingRef.current) {
@@ -509,6 +560,36 @@ export default function Home() {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  useEffect(() => { showRecordingsListRef.current = showRecordingsList; }, [showRecordingsList]);
+  useEffect(() => { reviewDataRef.current = reviewData; }, [reviewData]);
+
+  useEffect(() => {
+    if (!isInIframe) return;
+    history.replaceState({ view: 'hub-exit' }, '');
+    history.pushState({ view: 'camera' }, '');
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state?.view === 'hub-exit') {
+        window.parent.postMessage({ type: 'PHYSIQ_GO_HOME' }, '*');
+        return;
+      }
+      if (popstateLockRef.current) {
+        popstateLockRef.current = false;
+        return;
+      }
+      if (e.state?.view === 'camera') {
+        setReviewData(null);
+        setShowRecordingsList(false);
+      } else if (e.state?.view === 'list') {
+        setReviewData(null);
+        setShowRecordingsList(true);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   useEffect(() => {
@@ -559,6 +640,7 @@ export default function Home() {
             <button
               onClick={() => {
                 setListDefaultTab(recordings.length > 0 ? 'draft' : 'sent');
+                if (isInIframe) history.pushState({ view: 'list' }, '');
                 setShowRecordingsList(true);
               }}
               className="flex items-center gap-1 active:opacity-70"
@@ -786,7 +868,10 @@ export default function Home() {
           onOpen={handleOpenRecording}
           onOpenSent={handleOpenSentRecording}
           onSend={handleSendToReport}
-          onClose={() => setShowRecordingsList(false)}
+          onClose={() => {
+            if (isInIframe) { popstateLockRef.current = true; history.go(-1); }
+            setShowRecordingsList(false);
+          }}
           defaultTab={listDefaultTab}
         />
       )}
