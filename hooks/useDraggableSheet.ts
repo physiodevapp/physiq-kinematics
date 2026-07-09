@@ -43,8 +43,9 @@ export function useDraggableSheet(
     sheet.addEventListener("animationend", onAnimEnd, { once: true });
 
     let snap: "compact" | "expanded" = "compact";
-    let startY = 0, startTime = 0, dragging = false, delta = 0;
+    let startY = 0, dragging = false, delta = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const recentMoves: { y: number; t: number }[] = [];
 
     const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
 
@@ -98,19 +99,20 @@ export function useDraggableSheet(
       if (e.touches[0].clientY - rect.top > 72) return;
       clearTimer();
       startY = e.touches[0].clientY;
-      // startTime is set on first move, not here — otherwise a pause between
-      // touchstart and the actual swipe inflates elapsed time, understating
-      // velocity and causing a quick flick to snap back instead of dismissing.
-      startTime = 0;
       delta = 0;
       dragging = true;
+      recentMoves.length = 0;
       sheet.style.transition = "none";
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (!dragging) return;
-      delta = e.touches[0].clientY - startY;
-      if (startTime === 0 && delta !== 0) startTime = Date.now();
+      const y = e.touches[0].clientY;
+      delta = y - startY;
+      const now = Date.now();
+      recentMoves.push({ y, t: now });
+      // keep only the last 100 ms so velocity reflects the final motion, not the whole swipe
+      while (recentMoves.length > 1 && now - recentMoves[0].t > 100) recentMoves.shift();
       // Only translate downward; upward drag shows no interim visual (snap on release)
       sheet.style.transform = delta > 0 ? `translateY(${delta}px)` : "translateY(0)";
     };
@@ -118,21 +120,26 @@ export function useDraggableSheet(
     const onRelease = () => {
       if (!dragging) return;
       dragging = false;
-      const velocity = startTime > 0 ? delta / (Date.now() - startTime) : 0; // px/ms, signed
+      // velocity in px/ms from the last 100 ms window — positive = downward
+      const vel = recentMoves.length >= 2
+        ? (recentMoves[recentMoves.length - 1].y - recentMoves[0].y) /
+          (recentMoves[recentMoves.length - 1].t - recentMoves[0].t)
+        : 0;
 
       if (snap === "compact") {
-        if (allowExpand && (delta < -40 || velocity < -0.3)) {
+        if (allowExpand && (delta < -40 || vel < -0.3)) {
           expand();
-        } else if (delta > 80 || velocity > 0.3) {
+        } else if (delta > 80 || vel > 0.3) {
           dismiss();
         } else {
           snapBack();
         }
       } else {
-        // expanded
-        if (delta > 150 || velocity > 0.5) {
+        // expanded — dismiss only when still moving fast at the moment of release;
+        // a decelerated swipe (started fast, braked) collapses to 45 vh instead
+        if ((delta > 150 && vel > 0.3) || vel > 0.5) {
           dismiss();
-        } else if (delta > 60 || velocity > 0.3) {
+        } else if (delta > 60 || vel > 0.3) {
           collapse();
         } else {
           snapBack();
