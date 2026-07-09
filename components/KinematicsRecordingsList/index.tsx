@@ -134,8 +134,8 @@ export default function KinematicsRecordingsList({
       {/* ── Satellite header ── */}
       <div
         ref={headerRef}
-        className="shrink-0 flex items-center justify-between px-6 relative z-10"
-        style={{ height: 64, borderBottom: "1px solid #232d45", background: "#0a0d12" }}
+        className="shrink-0 flex items-center justify-between px-4 py-3 relative z-10"
+        style={{ borderBottom: "1px solid #232d45", background: "#0a0d12" }}
       >
         <h2 className="font-display text-white text-[1.1rem] min-[480px]:text-[1.2rem] min-[769px]:text-[1.5rem] inline-flex items-center gap-1.5" style={{ letterSpacing: "-0.5px" }}>
           {isInIframe && (
