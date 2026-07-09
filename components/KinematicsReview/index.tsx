@@ -7,8 +7,9 @@ import {
   CameraIcon,
   FilmIcon,
   PencilSquareIcon,
-  XMarkIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
+import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import type { CanvasKeypointName } from "@/interfaces/pose";
 import type { KinematicsSeries, KinematicsSeriesEntry } from "@/interfaces/kinematics";
 import { formatJointName, getColorsForJoint } from "@/utils/joint";
@@ -295,6 +296,112 @@ function paintChart(
   }
 
   ctx.restore();
+}
+
+interface SessionPanelProps {
+  patientLabel: string;
+  patientInput: string;
+  clearConfirm: boolean;
+  onPatientChange: (v: string) => void;
+  onPatientSave: () => void;
+  onClearRequest: () => void;
+  onClearConfirm: () => void;
+  onClearCancel: () => void;
+  onClose: () => void;
+}
+
+function SessionPanel({
+  patientLabel,
+  patientInput,
+  clearConfirm,
+  onPatientChange,
+  onPatientSave,
+  onClearRequest,
+  onClearConfirm,
+  onClearCancel,
+  onClose,
+}: SessionPanelProps) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const sheetHandle = useDraggableSheet(sheetRef, onClose, { allowExpand: false });
+
+  return (
+    <div className="fixed inset-0 z-[60]">
+      <div className="absolute inset-0 bg-black/60" onClick={() => sheetHandle.close()} />
+      <div
+        ref={sheetRef}
+        className="absolute bottom-0 inset-x-0 z-[1] rounded-t-2xl animate-slide-up touch-none"
+        style={{
+          background: "#111620",
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
+        <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0 touch-none" />
+        <div className="px-4 pt-3 pb-10">
+          {patientLabel && (
+            <p className="font-mono text-xs tracking-widest mb-4" style={{ color: "#5dadec" }}>
+              {patientLabel}
+            </p>
+          )}
+          {!clearConfirm ? (
+            <div>
+              <label
+                className="font-mono text-xs tracking-widest block mb-1.5"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+              >
+                PACIENTE
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  value={patientInput}
+                  onChange={(e) => onPatientChange(e.target.value)}
+                  onBlur={onPatientSave}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                  placeholder="Nombre del paciente..."
+                  className="flex-1 rounded-md px-3 py-2.5 text-white text-sm outline-none transition-colors"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    caretColor: "#5dadec",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "#5dadec"; }}
+                />
+                <button
+                  onClick={onClearRequest}
+                  className="shrink-0 rounded-md p-2.5 active:opacity-70 transition-opacity"
+                  style={{ border: "1px solid rgba(239,68,68,0.4)", color: "#ef4444" }}
+                  aria-label="Borrar sesión"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-white text-sm text-center py-1">
+                ¿Borrar y empezar de nuevo?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={onClearCancel}
+                  className="flex-1 py-3 rounded-md text-sm active:bg-white/5"
+                  style={{ color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.2)" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={onClearConfirm}
+                  className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
+                  style={{ background: "#5dadec" }}
+                >
+                  Borrar sesión
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface Props {
@@ -835,62 +942,17 @@ export default function KinematicsReview({
 
       {/* Session panel — bottom sheet */}
       {showSessionPanel && (
-        <div className="fixed inset-0 z-[60] flex items-end">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setShowSessionPanel(false)}
-          />
-          <div className="relative w-full bg-zinc-900 border-t border-white/10 rounded-t-2xl px-4 pt-4 pb-10 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display text-white text-base">Sesión activa</h3>
-              <button onClick={() => setShowSessionPanel(false)} className="text-white/50 active:opacity-70">
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="mb-4">
-              <label className="font-mono text-xs text-white/40 block mb-1.5">Paciente</label>
-              <input
-                value={patientInput}
-                onChange={(e) => setPatientInput(e.target.value)}
-                onBlur={handlePatientSave}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-                placeholder="Nombre del paciente..."
-                className="w-full bg-white/5 border border-white/15 rounded-md px-3 py-2.5 text-white text-sm outline-none transition-colors"
-                style={{ caretColor: "#5dadec" }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "#5dadec"; }}
-              />
-            </div>
-            {!clearConfirm ? (
-              <button
-                onClick={() => setClearConfirm(true)}
-                className="w-full py-3 rounded-md text-sm text-white/50 border border-white/20 active:bg-white/5"
-              >
-                Borrar sesión
-              </button>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <p className="text-white/50 text-xs text-center">
-                  Se borrará la sesión activa de todos los satélites. ¿Confirmar?
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setClearConfirm(false)}
-                    className="flex-1 py-3 rounded-md text-sm text-white/60 border border-white/20 active:bg-white/5"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleClearSession}
-                    className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
-                    style={{ background: "#5dadec" }}
-                  >
-                    Confirmar
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <SessionPanel
+          patientLabel={patient ? `${patient.toUpperCase()} · ${new Date().toLocaleDateString("es-ES")}` : ""}
+          patientInput={patientInput}
+          clearConfirm={clearConfirm}
+          onPatientChange={setPatientInput}
+          onPatientSave={handlePatientSave}
+          onClearRequest={() => setClearConfirm(true)}
+          onClearConfirm={handleClearSession}
+          onClearCancel={() => setClearConfirm(false)}
+          onClose={() => setShowSessionPanel(false)}
+        />
       )}
 
       {/* Action row — always same position; swaps buttons in edit mode */}

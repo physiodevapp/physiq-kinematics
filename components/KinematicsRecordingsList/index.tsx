@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   XMarkIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useDraggableSheet } from "@/hooks/useDraggableSheet";
 import type { CanvasKeypointName } from "@/interfaces/pose";
@@ -30,6 +31,7 @@ interface Props {
 }
 
 interface SessionPanelProps {
+  patientLabel: string;
   patientInput: string;
   clearConfirm: boolean;
   onPatientChange: (v: string) => void;
@@ -41,6 +43,7 @@ interface SessionPanelProps {
 }
 
 function SessionPanel({
+  patientLabel,
   patientInput,
   clearConfirm,
   onPatientChange,
@@ -66,52 +69,52 @@ function SessionPanel({
       >
         <div className="w-8 h-1 bg-white/30 rounded-full mx-auto mt-2 shrink-0 touch-none" />
         <div className="px-4 pt-3 pb-10">
-          <h3 className="font-display text-white text-base mb-4">Sesión activa</h3>
-          <div className="mb-4">
-            <label
-              className="font-mono-dm text-xs block mb-1.5"
-              style={{ color: "rgba(255,255,255,0.4)" }}
-            >
-              Paciente
-            </label>
-            <input
-              value={patientInput}
-              onChange={(e) => onPatientChange(e.target.value)}
-              onBlur={onPatientSave}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur();
-              }}
-              placeholder="Nombre del paciente..."
-              className="w-full rounded-md px-3 py-2.5 text-white text-sm outline-none transition-colors"
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                caretColor: "#5dadec",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "#5dadec";
-              }}
-            />
-          </div>
+          {patientLabel && (
+            <p className="font-mono text-xs tracking-widest mb-4" style={{ color: "#5dadec" }}>
+              {patientLabel}
+            </p>
+          )}
           {!clearConfirm ? (
-            <button
-              onClick={onClearRequest}
-              className="w-full py-3 rounded-md text-sm active:bg-white/5"
-              style={{
-                color: "rgba(255,255,255,0.5)",
-                border: "1px solid rgba(255,255,255,0.2)",
-              }}
-            >
-              Borrar sesión
-            </button>
+            <div>
+              <label
+                className="font-mono text-xs tracking-widest block mb-1.5"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+              >
+                PACIENTE
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  value={patientInput}
+                  onChange={(e) => onPatientChange(e.target.value)}
+                  onBlur={onPatientSave}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  placeholder="Nombre del paciente..."
+                  className="flex-1 rounded-md px-3 py-2.5 text-white text-sm outline-none transition-colors"
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    caretColor: "#5dadec",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "#5dadec";
+                  }}
+                />
+                <button
+                  onClick={onClearRequest}
+                  className="shrink-0 rounded-md p-2.5 active:opacity-70 transition-opacity"
+                  style={{ border: "1px solid rgba(239,68,68,0.4)", color: "#ef4444" }}
+                  aria-label="Borrar sesión"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <p
-                className="text-xs text-center"
-                style={{ color: "rgba(255,255,255,0.5)" }}
-              >
-                Se borrará la sesión activa de todos los satélites.
-                ¿Confirmar?
+              <p className="text-white text-sm text-center py-1">
+                ¿Borrar y empezar de nuevo?
               </p>
               <div className="flex gap-3">
                 <button
@@ -129,7 +132,7 @@ function SessionPanel({
                   className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
                   style={{ background: "#5dadec" }}
                 >
-                  Confirmar
+                  Borrar sesión
                 </button>
               </div>
             </div>
@@ -586,6 +589,7 @@ export default function KinematicsRecordingsList({
       {/* ── Session panel (bottom sheet) ── */}
       {showSessionPanel && (
         <SessionPanel
+          patientLabel={patient ? `${patient.toUpperCase()} · ${new Date().toLocaleDateString("es-ES")}` : ""}
           patientInput={patientInput}
           clearConfirm={clearConfirm}
           onPatientChange={setPatientInput}
