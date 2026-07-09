@@ -196,6 +196,8 @@ function paintChart(
     const PILL_PY = 3;
     const PILL_H = LINE_H + 9 + 2 + PILL_PY * 2; // two-line pill, matches AngleGraph
     const MIN_GAP = PILL_H + 2;
+    const DOT_R = 3;
+    const DOT_TOTAL = DOT_R * 2 + 4; // dot diameter + margin to text
 
     type CL = { color: string; name: string; angleStr: string; rawY: number; labelY: number };
     const cursorLabels: CL[] = [];
@@ -248,17 +250,25 @@ function paintChart(
         ctx.restore();
       }
 
-      const pillX = onRight ? lx - PILL_PX : lx - maxW - PILL_PX;
+      const pillX = onRight ? lx - PILL_PX : lx - maxW - PILL_PX - DOT_TOTAL;
       const pillY = labelY - 7 - PILL_PY;
       ctx.fillStyle = "rgba(0,0,0,0.72)";
       ctx.beginPath();
-      ctx.roundRect(pillX, pillY, maxW + PILL_PX * 2, PILL_H, 3);
+      ctx.roundRect(pillX, pillY, maxW + PILL_PX * 2 + DOT_TOTAL, PILL_H, 3);
       ctx.fill();
 
+      const dotX = pillX + PILL_PX + DOT_R;
+      const dotY = pillY + PILL_H / 2;
       ctx.fillStyle = color;
-      ctx.fillText(name, lx, labelY);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, DOT_R, 0, Math.PI * 2);
+      ctx.fill();
+
+      const textLx = onRight ? lx + DOT_TOTAL : lx;
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillText(name, textLx, labelY);
       ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.fillText(angleStr, lx, labelY + LINE_H);
+      ctx.fillText(angleStr, textLx, labelY + LINE_H);
     }
   }
 
