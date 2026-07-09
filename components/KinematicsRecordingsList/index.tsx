@@ -475,8 +475,15 @@ export default function KinematicsRecordingsList({
                           e.stopPropagation();
                           onDelete(r.id);
                         }}
-                        className="active:opacity-70 transition-opacity"
-                        style={{ color: "#5a6e8a" }}
+                        className="flex items-center justify-center rounded-[7px] transition-colors active:text-red-500"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          flexShrink: 0,
+                          background: "#1a2234",
+                          border: "1px solid #232d45",
+                          color: "#5a6e8a",
+                        }}
                       >
                         <XMarkIcon className="h-3.5 w-3.5" />
                       </button>
@@ -539,8 +546,15 @@ export default function KinematicsRecordingsList({
                           e.stopPropagation();
                           onDeleteSent(i);
                         }}
-                        className="active:opacity-70 transition-opacity"
-                        style={{ color: "#5a6e8a" }}
+                        className="flex items-center justify-center rounded-[7px] transition-colors active:text-red-500"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          flexShrink: 0,
+                          background: "#1a2234",
+                          border: "1px solid #232d45",
+                          color: "#5a6e8a",
+                        }}
                       >
                         <XMarkIcon className="h-3.5 w-3.5" />
                       </button>
