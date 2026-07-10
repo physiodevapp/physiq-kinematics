@@ -63,6 +63,7 @@ export default function Home() {
   const [isPoseModalOpen, setIsPoseModalOpen] = useState(false);
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
   const shouldResumeRef = useRef(false);
@@ -484,6 +485,14 @@ export default function Home() {
     new Image().src = `${basePath}/human.png`;
   }, [basePath]);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   // Restore saved draft recordings and sent recordings from IDB on mount
   useEffect(() => {
     readSession().then((s) => {
@@ -602,228 +611,251 @@ export default function Home() {
   }, [isCameraRunning]);
 
   return (
-    <main className="relative flex flex-col items-center justify-start h-dvh overflow-hidden">
+    <main className="relative flex flex-col lg:flex-row lg:items-stretch h-dvh overflow-hidden">
 
-      {/* Title bar — status indicator only; pause/resume via canvas tap */}
-      <h1 className="absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none">
-        {isInIframe && (
+      {/* ── Left column: camera feed + all floating overlays ── */}
+      <div className="relative flex flex-col items-center justify-start flex-1 min-w-0 overflow-hidden">
+
+        {/* Title bar — status indicator only; pause/resume via canvas tap */}
+        <h1 className="absolute z-10 top-1 left-1 font-display text-base sm:text-lg text-white bg-[#5dadec] dark:bg-black/40 rounded-2xl py-1.5 px-4 whitespace-nowrap inline-flex items-center gap-1.5 max-w-[85vw] select-none">
+          {isInIframe && (
+            <span
+              className="animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
+              style={{ opacity: 0.55 }}
+              onClick={handleGoHome}
+            >‹</span>
+          )}
           <span
-            className="animate-hub-back-hint transition-opacity duration-150 hover:opacity-100 cursor-pointer"
-            style={{ opacity: 0.55 }}
-            onClick={handleGoHome}
-          >‹</span>
-        )}
-        <span
-          className={isInIframe ? "cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
-          onClick={isInIframe ? handleGoHome : undefined}
-        >Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
-        <span className="opacity-50 font-normal">—</span>
-        <span style={{ color: "#5dadec" }}>Kinematics</span>
-        {isFrozen && (
-          <PauseIcon className="h-4 w-4 animate-pulse" />
-        )}
-        {isRecording && (
-          <>
-            <span className="opacity-30 font-normal">|</span>
-            <button
-              onClick={handleStopRecording}
-              className="flex items-center gap-1 active:opacity-70"
-            >
-              <StopIcon className="h-3.5 w-3.5 text-red-500 animate-pulse" />
-              <span className="font-mono text-sm text-red-400">{formatRecordingDuration(recordingDuration)}</span>
-            </button>
-          </>
-        )}
-        {(recordings.length > 0 || sentRecordings.length > 0) && (
-          <>
-            <span className="opacity-30 font-normal">|</span>
-            <button
-              onClick={() => {
-                setListDefaultTab(recordings.length > 0 ? 'draft' : 'sent');
-                if (isInIframe) history.pushState({ view: 'list' }, '');
-                setShowRecordingsList(true);
-              }}
-              className="flex items-center gap-1 active:opacity-70"
-            >
-              <FilmIcon className="h-4 w-4" />
-              <span className="font-mono text-sm">{recordings.length + sentRecordings.length}</span>
-            </button>
-          </>
-        )}
-      </h1>
-
-      {showSavedToast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
-          Grabación guardada · {recordings.length} en total
-        </div>
-      )}
-
-      {showSentToast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
-          Cinemática enviada al informe
-        </div>
-      )}
-
-      {showNoDataDialog && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-6"
-          onClick={() => setShowNoDataDialog(false)}
-        >
-          <div
-            className="bg-black border border-white/15 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-display text-white text-lg mb-2">Sin datos articulares</h3>
-            <p className="text-white/60 text-sm leading-relaxed mb-5">
-              No se detectaron articulaciones durante la grabación. Asegúrate de que la persona aparece completa en el encuadre y con buena iluminación.
-            </p>
-            <div className="flex justify-end">
+            className={isInIframe ? "cursor-pointer transition-opacity duration-150 hover:opacity-75" : ""}
+            onClick={isInIframe ? handleGoHome : undefined}
+          >Physi<span style={{ background: "linear-gradient(135deg,#4f9cf9,#38d9a9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Q</span></span>
+          <span className="opacity-50 font-normal">—</span>
+          <span style={{ color: "#5dadec" }}>Kinematics</span>
+          {isFrozen && (
+            <PauseIcon className="h-4 w-4 animate-pulse" />
+          )}
+          {isRecording && (
+            <>
+              <span className="opacity-30 font-normal">|</span>
               <button
-                onClick={() => setShowNoDataDialog(false)}
-                className="px-4 py-2 rounded-md text-sm text-white font-medium active:opacity-80"
-                style={{ background: "#5dadec" }}
+                onClick={handleStopRecording}
+                className="flex items-center gap-1 active:opacity-70"
               >
-                Entendido
+                <StopIcon className="h-3.5 w-3.5 text-red-500 animate-pulse" />
+                <span className="font-mono text-sm text-red-400">{formatRecordingDuration(recordingDuration)}</span>
               </button>
+            </>
+          )}
+          {(recordings.length > 0 || sentRecordings.length > 0) && (
+            <>
+              <span className="opacity-30 font-normal">|</span>
+              <button
+                onClick={() => {
+                  setListDefaultTab(recordings.length > 0 ? 'draft' : 'sent');
+                  if (isInIframe) history.pushState({ view: 'list' }, '');
+                  setShowRecordingsList(true);
+                }}
+                className="flex items-center gap-1 active:opacity-70"
+              >
+                <FilmIcon className="h-4 w-4" />
+                <span className="font-mono text-sm">{recordings.length + sentRecordings.length}</span>
+              </button>
+            </>
+          )}
+        </h1>
+
+        {showSavedToast && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
+            Grabación guardada · {recordings.length} en total
+          </div>
+        )}
+
+        {showSentToast && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs whitespace-nowrap">
+            Cinemática enviada al informe
+          </div>
+        )}
+
+        {showNoDataDialog && (
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-6"
+            onClick={() => setShowNoDataDialog(false)}
+          >
+            <div
+              className="bg-black border border-white/15 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-display text-white text-lg mb-2">Sin datos articulares</h3>
+              <p className="text-white/60 text-sm leading-relaxed mb-5">
+                No se detectaron articulaciones durante la grabación. Asegúrate de que la persona aparece completa en el encuadre y con buena iluminación.
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowNoDataDialog(false)}
+                  className="px-4 py-2 rounded-md text-sm text-white font-medium active:opacity-80"
+                  style={{ background: "#5dadec" }}
+                >
+                  Entendido
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Camera feed + canvas — only mounted when satellite is visible and no overlay is open */}
-      <div className="relative w-full flex-1">
-        {isCameraRunning && (
-          <KinematicsLive
-            orthogonalReference={orthogonalReference}
-            videoConstraints={videoConstraints}
-            anglesToDisplay={anglesToDisplay}
-            setAnglesToDisplay={setAnglesToDisplay}
-            isPoseSettingsModalOpen={isPoseSettingsModalOpen}
-            setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
-            jointWorkerRef={jointWorkerRef}
+        {/* Camera feed + canvas — only mounted when satellite is visible and no overlay is open */}
+        <div className="relative w-full flex-1">
+          {isCameraRunning && (
+            <KinematicsLive
+              orthogonalReference={orthogonalReference}
+              videoConstraints={videoConstraints}
+              anglesToDisplay={anglesToDisplay}
+              setAnglesToDisplay={setAnglesToDisplay}
+              isPoseSettingsModalOpen={isPoseSettingsModalOpen}
+              setIsPoseSettingsModalOpen={setIsPoseSettingsModalOpen}
+              jointWorkerRef={jointWorkerRef}
+              jointDataRef={jointDataRef}
+              onChangeIsFrozen={(frozen) => { if (!isRecordingRef.current) setIsFrozen(frozen); }}
+              onWorkerInit={() => handleWorkerLifecycle(true)}
+              showGrid={showGrid}
+              showPoseOrientationModal={showPoseOrientationModal}
+              setShowPoseOrientationModal={setShowPoseOrientationModal}
+              onPoseOrientationInferredChange={setPoseOrientationInferred}
+              onJointData={handleJointData}
+            />
+          )}
+        </div>
+
+        {/* Right toolbar */}
+        <section className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-2xl">
+          <div
+            className="relative cursor-pointer"
+            onClick={toggleCamera}
+          >
+            <CameraIcon className="h-6 w-6 text-white" />
+            <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]" />
+          </div>
+
+          <UserIcon
+            className="h-6 w-6 cursor-pointer text-white"
+            onClick={() => setIsPoseModalOpen((prev) => !prev)}
+          />
+
+          <div className="w-6 flex justify-center items-center z-10">
+            <button
+              className={`h-6 w-6 rounded-md text-center text-[1.2rem] font-bold leading-none uppercase ${
+                poseOrientation === "auto"
+                  ? "bg-green-500"
+                  : poseOrientation
+                  ? "bg-[#5dadec]"
+                  : "bg-red-500 animate-pulse"
+              }`}
+              onClick={() => {
+                setShowPoseOrientationModal((prev) => !prev);
+                shouldResumeRef.current = !isFrozen;
+              }}
+            >
+              {poseOrientation === "auto"
+                ? poseOrientationInferred?.[0] ?? "?"
+                : poseOrientation
+                ? poseOrientation[0]
+                : "?"}
+            </button>
+          </div>
+
+          <PresentationChartLineIcon
+            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
+            onClick={handleToggleGraph}
+          />
+
+          <Cog6ToothIcon
+            className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
+            onClick={handleTogglePoseSettings}
+          />
+
+          {/* Pose orientation picker */}
+          {showPoseOrientationModal && (
+            <section className="absolute top-[0.2rem] right-full mr-2 flex flex-col gap-2">
+              {poseOrientations.map((orientation) => (
+                <div key={orientation} className="w-[3.8rem]">
+                  <button
+                    className={`rounded-md w-full py-1 ${
+                      orientation === poseOrientation && poseOrientation === "auto"
+                        ? "bg-green-500"
+                        : orientation === poseOrientation
+                        ? "bg-[#5dadec]"
+                        : "bg-black/40"
+                    }`}
+                    onClick={() => {
+                      setPoseOrientation(orientation);
+                      setShowPoseOrientationModal(false);
+                    }}
+                  >
+                    <span className="uppercase text-white">{orientation[0]}</span>
+                    <span className="text-white">{orientation.slice(1)}</span>
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
+        </section>
+
+        {/* Bottom right controls */}
+        <div className="absolute right-1 bottom-2 z-30 flex flex-row-reverse items-center gap-2">
+          <ArrowTopRightOnSquareIcon
+            className={`w-8 h-8 text-white transition-transform ${
+              orthogonalReference === undefined ? "-rotate-0 opacity-50" : "-rotate-45"
+            }`}
+            onClick={() => {
+              const next: OrthogonalReference =
+                orthogonalReference === "vertical" ? undefined : "vertical";
+              setOrthogonalReference(next);
+            }}
+          />
+          <div
+            className={`relative ${showGrid ? "opacity-100" : "opacity-40"}`}
+            onClick={() => setShowGrid((prev) => !prev)}
+          >
+            <Bars2Icon className="h-8 w-8 text-white" />
+            <Bars2Icon className="absolute top-[0.025rem] left-[0.026rem] rotate-90 h-8 w-8 text-white" />
+          </div>
+        </div>
+
+        {/* Mobile: angle graph as bottom sheet */}
+        {showGraph && !isDesktop && (
+          <AngleGraph
+            ref={angleGraphRef}
+            variant="sheet"
             jointDataRef={jointDataRef}
-            onChangeIsFrozen={(frozen) => { if (!isRecordingRef.current) setIsFrozen(frozen); }}
-            onWorkerInit={() => handleWorkerLifecycle(true)}
-            showGrid={showGrid}
-            showPoseOrientationModal={showPoseOrientationModal}
-            setShowPoseOrientationModal={setShowPoseOrientationModal}
-            onPoseOrientationInferredChange={setPoseOrientationInferred}
-            onJointData={handleJointData}
+            selectedJoints={selectedJoints}
+            isFrozen={isFrozen}
+            onClose={() => setShowGraph(false)}
+            isRecording={isRecording}
+            recordingDuration={recordingDuration}
+            onStartRecording={handleStartRecording}
+            onStopRecording={handleStopRecording}
           />
         )}
       </div>
 
-      {/* Right toolbar */}
-      <section className="absolute top-1 right-1 p-2 z-10 flex flex-col justify-between gap-6 bg-[#5dadec] dark:bg-black/40 rounded-2xl">
-        <div
-          className="relative cursor-pointer"
-          onClick={toggleCamera}
-        >
-          <CameraIcon className="h-6 w-6 text-white" />
-          <ArrowPathIcon className="absolute top-[60%] -right-1 h-4 w-4 text-[#5dadec] dark:text-white bg-white/80 dark:bg-black/80 rounded-full p-[0.1rem]" />
+      {/* ── Right column: angle graph side panel (desktop ≥1024px only) ── */}
+      {showGraph && isDesktop && (
+        <div className="flex flex-col shrink-0 w-[380px]" style={{ borderLeft: "1px solid #232d45", background: "#0a0d12" }}>
+          <AngleGraph
+            ref={angleGraphRef}
+            variant="panel"
+            jointDataRef={jointDataRef}
+            selectedJoints={selectedJoints}
+            isFrozen={isFrozen}
+            onClose={() => setShowGraph(false)}
+            isRecording={isRecording}
+            recordingDuration={recordingDuration}
+            onStartRecording={handleStartRecording}
+            onStopRecording={handleStopRecording}
+          />
         </div>
-
-        <UserIcon
-          className="h-6 w-6 cursor-pointer text-white"
-          onClick={() => setIsPoseModalOpen((prev) => !prev)}
-        />
-
-        <div className="w-6 flex justify-center items-center z-10">
-          <button
-            className={`h-6 w-6 rounded-md text-center text-[1.2rem] font-bold leading-none uppercase ${
-              poseOrientation === "auto"
-                ? "bg-green-500"
-                : poseOrientation
-                ? "bg-[#5dadec]"
-                : "bg-red-500 animate-pulse"
-            }`}
-            onClick={() => {
-              setShowPoseOrientationModal((prev) => !prev);
-              shouldResumeRef.current = !isFrozen;
-            }}
-          >
-            {poseOrientation === "auto"
-              ? poseOrientationInferred?.[0] ?? "?"
-              : poseOrientation
-              ? poseOrientation[0]
-              : "?"}
-          </button>
-        </div>
-
-        <PresentationChartLineIcon
-          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${showGraph ? "text-white opacity-100" : "text-white opacity-40"}`}
-          onClick={handleToggleGraph}
-        />
-
-        <Cog6ToothIcon
-          className={`h-6 w-6 cursor-pointer transition-opacity duration-150 ${isPoseSettingsModalOpen ? "text-white opacity-100" : "text-white opacity-40"}`}
-          onClick={handleTogglePoseSettings}
-        />
-
-        {/* Pose orientation picker */}
-        {showPoseOrientationModal && (
-          <section className="absolute top-[0.2rem] right-full mr-2 flex flex-col gap-2">
-            {poseOrientations.map((orientation) => (
-              <div key={orientation} className="w-[3.8rem]">
-                <button
-                  className={`rounded-md w-full py-1 ${
-                    orientation === poseOrientation && poseOrientation === "auto"
-                      ? "bg-green-500"
-                      : orientation === poseOrientation
-                      ? "bg-[#5dadec]"
-                      : "bg-black/40"
-                  }`}
-                  onClick={() => {
-                    setPoseOrientation(orientation);
-                    setShowPoseOrientationModal(false);
-                  }}
-                >
-                  <span className="uppercase text-white">{orientation[0]}</span>
-                  <span className="text-white">{orientation.slice(1)}</span>
-                </button>
-              </div>
-            ))}
-          </section>
-        )}
-      </section>
-
-      {/* Bottom right controls */}
-      <div className="absolute right-1 bottom-2 z-30 flex flex-row-reverse items-center gap-2">
-        <ArrowTopRightOnSquareIcon
-          className={`w-8 h-8 text-white transition-transform ${
-            orthogonalReference === undefined ? "-rotate-0 opacity-50" : "-rotate-45"
-          }`}
-          onClick={() => {
-            const next: OrthogonalReference =
-              orthogonalReference === "vertical" ? undefined : "vertical";
-            setOrthogonalReference(next);
-          }}
-        />
-        <div
-          className={`relative ${showGrid ? "opacity-100" : "opacity-40"}`}
-          onClick={() => setShowGrid((prev) => !prev)}
-        >
-          <Bars2Icon className="h-8 w-8 text-white" />
-          <Bars2Icon className="absolute top-[0.025rem] left-[0.026rem] rotate-90 h-8 w-8 text-white" />
-        </div>
-      </div>
-
-      {/* Real-time angle graph — bottom sheet */}
-      {showGraph && (
-        <AngleGraph
-          ref={angleGraphRef}
-          jointDataRef={jointDataRef}
-          selectedJoints={selectedJoints}
-          isFrozen={isFrozen}
-          onClose={() => setShowGraph(false)}
-          isRecording={isRecording}
-          recordingDuration={recordingDuration}
-          onStartRecording={handleStartRecording}
-          onStopRecording={handleStopRecording}
-        />
       )}
 
-      {/* Modals */}
+      {/* Modals & full-screen overlays */}
       <PoseModal
         isModalOpen={isPoseModalOpen}
         handleModal={() => setIsPoseModalOpen((prev) => !prev)}
