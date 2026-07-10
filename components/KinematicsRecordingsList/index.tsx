@@ -58,7 +58,7 @@ function SessionPanel({
 
   return (
     <div className="fixed inset-0 z-[60]">
-      <div className="absolute inset-0 bg-black/60" onClick={() => sheetHandle.close()} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => sheetHandle.close()} />
       <div
         ref={sheetRef}
         className="absolute bottom-0 inset-x-0 z-[1] rounded-t-2xl animate-slide-up touch-none"
