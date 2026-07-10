@@ -741,7 +741,7 @@ export default function KinematicsReview({
             </button>
             <span className="font-mono text-xs text-white/40">Grabación {recordingNumber}</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 lg:gap-4">
             <button
               onClick={toggleEditMode}
               className="flex items-center gap-1 text-sm active:opacity-70 transition-colors"
@@ -757,6 +757,15 @@ export default function KinematicsReview({
               >
                 <FilmIcon className="h-5 w-5" />
                 Lista
+              </button>
+            )}
+            {!editMode && (
+              <button
+                onClick={() => onSend(workingSeries)}
+                className="hidden lg:block py-1.5 px-4 rounded-md text-sm text-white font-medium active:opacity-80 whitespace-nowrap"
+                style={{ background: "#5dadec" }}
+              >
+                Guardar
               </button>
             )}
           </div>
@@ -948,7 +957,8 @@ export default function KinematicsReview({
       )}
 
       {/* Action row — always same position; swaps buttons in edit mode */}
-      <div className="shrink-0 flex gap-3 px-4 py-4">
+      {/* Hidden on desktop when not editing (Guardar moves to header instead) */}
+      <div className={`shrink-0 flex gap-3 px-4 py-4${!editMode ? " lg:hidden" : ""}`}>
         {editMode ? (
           showSlider ? (
             <>

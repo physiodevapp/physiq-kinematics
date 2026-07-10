@@ -352,6 +352,9 @@ export default function KinematicsRecordingsList({
         </div>
       )}
 
+      {/* ── Centered content wrapper (desktop: max 640 px) ── */}
+      <div className="flex-1 min-h-0 flex flex-col lg:max-w-[640px] lg:w-full lg:mx-auto">
+
       {/* Spacer — pushes sub-header down in sync with the translate banner */}
       <div
         className="shrink-0"
@@ -587,6 +590,8 @@ export default function KinematicsRecordingsList({
           </button>
         </div>
       )}
+
+      </div>{/* end centered content wrapper */}
 
       {/* ── Session panel (bottom sheet) ── */}
       {showSessionPanel && (

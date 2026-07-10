@@ -64,6 +64,10 @@ export default function Home() {
   const [isPoseSettingsModalOpen, setIsPoseSettingsModalOpen] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [graphPanelWidth, setGraphPanelWidth] = useState(40); // percent of viewport
+  const isDraggingDividerRef = useRef(false);
+  const dividerStartXRef = useRef(0);
+  const dividerStartWidthRef = useRef(0);
 
   const [showPoseOrientationModal, setShowPoseOrientationModal] = useState(false);
   const shouldResumeRef = useRef(false);
@@ -480,6 +484,20 @@ export default function Home() {
     }));
   };
 
+  const handleDividerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDraggingDividerRef.current = true;
+    dividerStartXRef.current = e.clientX;
+    dividerStartWidthRef.current = graphPanelWidth;
+  };
+  const handleDividerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingDividerRef.current) return;
+    const deltaX = e.clientX - dividerStartXRef.current;
+    const deltaPct = (deltaX / window.innerWidth) * 100;
+    setGraphPanelWidth(Math.min(65, Math.max(25, dividerStartWidthRef.current - deltaPct)));
+  };
+  const handleDividerPointerUp = () => { isDraggingDividerRef.current = false; };
+
   // Preload the joint-selection body diagram so it's cached before the modal opens
   useEffect(() => {
     new Image().src = `${basePath}/human.png`;
@@ -837,22 +855,37 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── Right column: angle graph side panel (desktop ≥1024px only) ── */}
+      {/* ── Right column: resizable angle graph panel (desktop ≥1024px only) ── */}
       {showGraph && isDesktop && (
-        <div className="flex flex-col shrink-0 w-[380px]" style={{ borderLeft: "1px solid #232d45", background: "#0a0d12" }}>
-          <AngleGraph
-            ref={angleGraphRef}
-            variant="panel"
-            jointDataRef={jointDataRef}
-            selectedJoints={selectedJoints}
-            isFrozen={isFrozen}
-            onClose={() => setShowGraph(false)}
-            isRecording={isRecording}
-            recordingDuration={recordingDuration}
-            onStartRecording={handleStartRecording}
-            onStopRecording={handleStopRecording}
+        <>
+          {/* Drag handle */}
+          <div
+            className="w-1 shrink-0 cursor-col-resize bg-[#232d45] hover:bg-[#5dadec]/30 transition-colors"
+            style={{ touchAction: "none" }}
+            onPointerDown={handleDividerPointerDown}
+            onPointerMove={handleDividerPointerMove}
+            onPointerUp={handleDividerPointerUp}
+            onPointerCancel={handleDividerPointerUp}
           />
-        </div>
+          {/* Graph panel */}
+          <div
+            className="flex flex-col shrink-0"
+            style={{ width: `${graphPanelWidth}%`, background: "#0a0d12" }}
+          >
+            <AngleGraph
+              ref={angleGraphRef}
+              variant="panel"
+              jointDataRef={jointDataRef}
+              selectedJoints={selectedJoints}
+              isFrozen={isFrozen}
+              onClose={() => setShowGraph(false)}
+              isRecording={isRecording}
+              recordingDuration={recordingDuration}
+              onStartRecording={handleStartRecording}
+              onStopRecording={handleStopRecording}
+            />
+          </div>
+        </>
       )}
 
       {/* Modals & full-screen overlays */}
