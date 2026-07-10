@@ -682,7 +682,7 @@ export default function KinematicsReview({
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Header */}
       <div ref={headerRef} className="shrink-0 bg-black/60 relative z-10">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-3 [@media(max-height:500px)_and_(max-width:900px)]:py-1.5">
           <h2 className="font-display text-white text-[1.1rem] min-[480px]:text-[1.2rem] min-[769px]:text-[1.5rem] inline-flex items-center gap-1.5" style={{ letterSpacing: "-0.5px" }}>
             {isInIframe && (
               <span
@@ -719,7 +719,7 @@ export default function KinematicsReview({
             </button>
           </div>
         </div>
-        <div className="flex items-center justify-between px-4 pb-2">
+        <div className="flex items-center justify-between px-4 pb-2 [@media(max-height:500px)_and_(max-width:900px)]:pb-1">
           <div className="flex items-center gap-2">
             <button
               onClick={() => onAcceptAndRecordAnother(workingSeries)}

@@ -141,6 +141,7 @@ interface AngleGraphProps {
   recordingDuration: number;
   onStartRecording: () => void;
   onStopRecording: () => void;
+  variant?: "sheet" | "panel";
 }
 
 const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function AngleGraph({
@@ -152,9 +153,11 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
   recordingDuration,
   onStartRecording,
   onStopRecording,
+  variant = "sheet",
 }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const nullRef = useRef<HTMLDivElement | null>(null);
   const bufferRef = useRef<Map<string, number[]>>(new Map());
   const rafRef = useRef<number | null>(null);
   const lastDrawRef = useRef(0);
@@ -173,8 +176,10 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
     }
   }, [selectedJoints]);
 
-  const sheetHandle = useDraggableSheet(sheetRef, onClose);
-  useImperativeHandle(ref, () => sheetHandle, [sheetHandle]);
+  const sheetHandle = useDraggableSheet(variant === "panel" ? nullRef : sheetRef, onClose);
+  useImperativeHandle(ref, () => ({
+    close: variant === "panel" ? onClose : sheetHandle.close,
+  }), [variant, onClose, sheetHandle.close]);
 
   useEffect(() => {
     const tick = (now: number) => {
@@ -219,6 +224,45 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
     };
   }, [jointDataRef]);
 
+  const recordBtn = (
+    <button
+      disabled={(selectedJoints.length === 0 || isFrozen) && !isRecording}
+      onClick={isRecording ? onStopRecording : onStartRecording}
+      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all duration-150 ${
+        selectedJoints.length === 0 && !isRecording
+          ? "opacity-25 cursor-not-allowed text-white"
+          : isRecording
+          ? "text-red-400 animate-pulse"
+          : "text-white/70 active:opacity-70"
+      }`}
+    >
+      {isRecording ? (
+        <>
+          <StopIcon className="h-5 w-5 text-red-500" />
+          <span className="font-mono">{fmtDuration(recordingDuration)}</span>
+        </>
+      ) : (
+        <>
+          <VideoCameraIcon className="h-5 w-5" />
+          Grabar
+        </>
+      )}
+    </button>
+  );
+
+  if (variant === "panel") {
+    return (
+      <div className="flex flex-col w-full h-full">
+        <div className="shrink-0 flex items-center justify-end px-3 py-2" style={{ borderBottom: "1px solid #232d45" }}>
+          {recordBtn}
+        </div>
+        <div className="w-full flex-1 min-h-0">
+          <canvas ref={canvasRef} className="w-full h-full" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={sheetRef}
@@ -229,29 +273,7 @@ const AngleGraph = forwardRef<DraggableSheetHandle, AngleGraphProps>(function An
 
       {/* Record / stop button row */}
       <div className="shrink-0 flex items-center justify-end px-3 py-1 touch-none">
-        <button
-          disabled={(selectedJoints.length === 0 || isFrozen) && !isRecording}
-          onClick={isRecording ? onStopRecording : onStartRecording}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-all duration-150 ${
-            selectedJoints.length === 0 && !isRecording
-              ? "opacity-25 cursor-not-allowed text-white"
-              : isRecording
-              ? "text-red-400 animate-pulse"
-              : "text-white/70 active:opacity-70"
-          }`}
-        >
-          {isRecording ? (
-            <>
-              <StopIcon className="h-5 w-5 text-red-500" />
-              <span className="font-mono">{fmtDuration(recordingDuration)}</span>
-            </>
-          ) : (
-            <>
-              <VideoCameraIcon className="h-5 w-5" />
-              Grabar
-            </>
-          )}
-        </button>
+        {recordBtn}
       </div>
 
       {/* pb-12 reserves room below the canvas for the fixed orthogonal-reference/grid
