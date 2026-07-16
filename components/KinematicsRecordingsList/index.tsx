@@ -206,6 +206,9 @@ export default function KinematicsRecordingsList({
   const [patientInput, setPatientInput] = useState("");
   const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<
+    { type: 'local'; id: number; label: string } | { type: 'sent'; index: number; label: string } | null
+  >(null);
 
   const [showTranslateBanner, setShowTranslateBanner] = useState(false);
   const translateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -517,7 +520,7 @@ export default function KinematicsRecordingsList({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDelete(r.id);
+                          setPendingDelete({ type: 'local', id: r.id, label: `la grabación ${i + 1}` });
                         }}
                         className="flex items-center justify-center rounded-[7px] transition-colors active:text-red-500"
                         style={{
@@ -588,7 +591,7 @@ export default function KinematicsRecordingsList({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteSent(i);
+                          setPendingDelete({ type: 'sent', index: i, label: `la medición ${i + 1}` });
                         }}
                         className="flex items-center justify-center rounded-[7px] transition-colors active:text-red-500"
                         style={{
@@ -628,6 +631,56 @@ export default function KinematicsRecordingsList({
       )}
 
       </div>{/* end centered content wrapper */}
+
+      {/* ── Delete confirm overlay ── */}
+      {pendingDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setPendingDelete(null)}
+          />
+          <div
+            className="relative z-[1] rounded-2xl animate-fade-up mx-4"
+            style={{
+              background: "#111620",
+              border: "1px solid #232d45",
+              padding: "1.8rem",
+              maxWidth: 360,
+              width: "100%",
+            }}
+          >
+            <p
+              className="font-medium mb-2"
+              style={{ fontFamily: "'DM Serif Display', serif", fontSize: "1.1rem", color: "#e8edf5" }}
+            >
+              Borrar grabación
+            </p>
+            <p className="text-sm mb-6" style={{ color: "#5a6e8a", lineHeight: 1.5 }}>
+              Se eliminará {pendingDelete.label}.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="flex-1 py-3 rounded-md text-sm active:bg-white/5"
+                style={{ color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.2)" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (pendingDelete.type === 'local') onDelete(pendingDelete.id);
+                  else if (onDeleteSent) onDeleteSent(pendingDelete.index);
+                  setPendingDelete(null);
+                }}
+                className="flex-1 py-3 rounded-md text-sm text-white font-medium active:opacity-80"
+                style={{ background: "#5dadec" }}
+              >
+                Borrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Session panel (bottom sheet) ── */}
       {showSessionPanel && (
