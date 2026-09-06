@@ -25,9 +25,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Clone physiq hub
-        run: |
-          git clone https://x-access-token:${{ secrets.PHYSIQ_DEPLOY_TOKEN }}@github.com/physiodevapp/physiq.git hub
+      - name: Checkout physiq hub
+        uses: actions/checkout@v4
+        with:
+          repository: physiodevapp/physiq
+          token: ${{ secrets.PHYSIQ_DEPLOY_TOKEN }}
+          path: hub
 
       - name: Copy build to hub
         run: |
